@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import FilterBar, { getDefaultDates } from '../components/overview/FilterBar';
 import KPICards from '../components/overview/KPICards';
-import WeeklyTrendChart from '../components/overview/WeeklyTrendChart';
+import DailyTrendChart from '../components/overview/DailyTrendChart';
 import StockDistributionChart from '../components/overview/StockDistributionChart';
 import TransactionByUnitChart from '../components/overview/TransactionByUnitChart';
+import OilTransactionDetail from '../components/overview/OilTransactionDetail';
 import { ArrowRight, BarChart2 } from 'lucide-react';
 
 /* ─────────────────────────────────────────
@@ -49,14 +50,17 @@ export default function Overview() {
                 <div>
 
                     <div className="space-y-5">
-                        {/* A — Tren Transaksi Mingguan (full width) */}
-                        <WeeklyTrendChart filters={filters} />
+                        {/* A — Tren Transaksi Harian (full width) */}
+                        <DailyTrendChart filters={filters} />
 
                         {/* B + C — Side by side (responsive) */}
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
                             <StockDistributionChart filters={filters} />
                             <TransactionByUnitChart filters={filters} />
                         </div>
+
+                        {/* D — Detail Transaksi Minyak (Tabel Detail 5 Teratas & Lihat Selengkapnya) */}
+                        <OilTransactionDetail filters={filters} />
                     </div>
                 </div>
 

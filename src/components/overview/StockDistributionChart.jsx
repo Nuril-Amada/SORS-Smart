@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
-    PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer
+    PieChart, Pie, Cell, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { PieChart as PieIcon, ChevronDown } from 'lucide-react';
+import { PieChart as PieIcon, ChevronDown, Inbox } from 'lucide-react';
 
 /* ─────────────────────────────────────────
-   Color palette
+   Color palette untuk potongan donat
 ───────────────────────────────────────── */
 const COLORS = [
     '#f59e0b', // amber
@@ -19,47 +19,41 @@ const COLORS = [
 ];
 
 /* ─────────────────────────────────────────
-   Grouping options & mock data generators
+   Grouping options
 ───────────────────────────────────────── */
 const GROUP_OPTIONS = [
     { id: 'product', label: 'Jenis Produk' },
     { id: 'cluster', label: 'Cluster Tank' },
-    { id: 'tank',    label: 'Tangki' },
+    { id: 'tank', label: 'Tangki' },
 ];
 
-function genProductData() {
-    return [
-        { name: 'CPO',         value: 18450.5 },
-        { name: 'RBD Olein',   value: 12340.2 },
-        { name: 'RBD Stearin', value:  7820.8 },
-        { name: 'PKO',         value:  5610.0 },
-        { name: 'PFAD',        value:  3200.5 },
-        { name: 'RBDPO',       value:  1980.0 },
-    ];
-}
+/* ─────────────────────────────────────────
+   Presentational only — TIDAK ada data dummy
+   dan TIDAK fetch apa pun di sini.
 
-function genClusterData() {
-    return [
-        { name: 'Cluster A', value: 15320.0 },
-        { name: 'Cluster B', value: 13480.5 },
-        { name: 'Cluster C', value: 10280.2 },
-        { name: 'Cluster D', value:  8120.8 },
-        { name: 'Cluster E', value:  2200.5 },
-    ];
-}
+   `data` datang dari parent (hasil fetch API / DB),
+   bisa berbentuk array:
+   [
+     { name: 'CPO', value: 18450.5 },
+     { name: 'RBD Olein', value: 12340.2 },
+     ...
+   ]
 
-function genTankData() {
-    return Array.from({ length: 6 }, (_, i) => ({
-        name: `Tangki ${String(i + 1).padStart(2, '0')}`,
-        value: Math.round(3000 + Math.random() * 7000),
-    }));
-}
+   Atau object terkelompok:
+   {
+     product: [{ name: 'CPO', value: 18450.5 }, ...],
+     cluster: [{ name: 'Cluster A', value: 15320.0 }, ...],
+     tank:    [{ name: 'Tangki 01', value: 4500.0 }, ...]
+   }
 
-function getDataByGroup(group) {
-    if (group === 'product') return genProductData();
-    if (group === 'cluster') return genClusterData();
-    return genTankData();
-}
+   Contoh pemakaian di parent:
+     const [data, setData] = useState([]);
+     useEffect(() => {
+       fetch(`/api/stock-distribution?...`).then(r => r.json()).then(setData);
+     }, [filters]);
+     ...
+     <StockDistributionChart data={data} />
+───────────────────────────────────────── */
 
 /* ─────────────────────────────────────────
    Custom Tooltip
@@ -67,11 +61,13 @@ function getDataByGroup(group) {
 function CustomTooltip({ active, payload, total }) {
     if (!active || !payload?.length) return null;
     const item = payload[0];
-    const pct  = ((item.value / total) * 100).toFixed(1);
+    const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
     return (
         <div className="bg-slate-900 border border-slate-700 rounded-xl p-3.5 shadow-2xl min-w-[170px]">
             <p className="text-xs font-bold text-white mb-1">{item.name}</p>
-            <p className="text-amber-400 text-sm font-black">{item.value.toLocaleString('id-ID', { minimumFractionDigits: 1 })} MT</p>
+            <p className="text-amber-400 text-sm font-black">
+                {Number(item.value || 0).toLocaleString('id-ID', { minimumFractionDigits: 1 })} MT
+            </p>
             <p className="text-slate-400 text-[11px] mt-0.5">{pct}% dari total stok</p>
         </div>
     );
@@ -89,7 +85,7 @@ function LegendItem({ name, value, color, pct }) {
             </div>
             <div className="text-right shrink-0">
                 <span className="text-xs font-bold text-slate-800">
-                    {value.toLocaleString('id-ID', { minimumFractionDigits: 1 })}
+                    {Number(value || 0).toLocaleString('id-ID', { minimumFractionDigits: 1 })}
                 </span>
                 <span className="text-[10px] text-slate-400 ml-1">MT</span>
                 <span className="text-[10px] text-amber-500 ml-2 font-semibold">{pct}%</span>
@@ -99,14 +95,43 @@ function LegendItem({ name, value, color, pct }) {
 }
 
 /* ─────────────────────────────────────────
+   Empty state jika data belum ada / belum terhubung DB
+───────────────────────────────────────── */
+function EmptyState() {
+    return (
+        <div className="flex flex-col items-center justify-center gap-2 h-[220px] w-full text-slate-400">
+            <Inbox className="w-8 h-8 text-slate-300" />
+            <p className="text-sm font-semibold">Belum ada data distribusi stok</p>
+            <p className="text-xs text-slate-400">Data akan tampil otomatis setelah terhubung dengan database</p>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────
    StockDistributionChart component
 ───────────────────────────────────────── */
-export default function StockDistributionChart({ filters }) {
+export default function StockDistributionChart({ data = [], filters, onGroupChange }) {
     const [group, setGroup] = useState('product');
     const [dropOpen, setDropOpen] = useState(false);
 
-    const data  = useMemo(() => getDataByGroup(group), [group]);
-    const total = useMemo(() => data.reduce((s, d) => s + d.value, 0), [data]);
+    // Ambil data sesuai format (array langsung atau object per grup)
+    const chartData = useMemo(() => {
+        if (Array.isArray(data)) return data;
+        if (data && typeof data === 'object' && Array.isArray(data[group])) {
+            return data[group];
+        }
+        return [];
+    }, [data, group]);
+
+    const total = useMemo(() => chartData.reduce((s, d) => s + (Number(d.value) || 0), 0), [chartData]);
+
+    const handleSelectGroup = (groupId) => {
+        setGroup(groupId);
+        setDropOpen(false);
+        if (onGroupChange) {
+            onGroupChange(groupId);
+        }
+    };
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -141,12 +166,11 @@ export default function StockDistributionChart({ filters }) {
                             {GROUP_OPTIONS.map(opt => (
                                 <button
                                     key={opt.id}
-                                    onClick={() => { setGroup(opt.id); setDropOpen(false); }}
-                                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
-                                        group === opt.id
+                                    onClick={() => handleSelectGroup(opt.id)}
+                                    className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${group === opt.id
                                             ? 'bg-amber-50 text-amber-700'
                                             : 'text-slate-600 hover:bg-slate-50'
-                                    }`}
+                                        }`}
                                 >
                                     {opt.label}
                                 </button>
@@ -157,52 +181,53 @@ export default function StockDistributionChart({ filters }) {
             </div>
 
             {/* ── Chart + Legend ── */}
-            <div className="px-5 py-5 flex flex-col md:flex-row gap-6 items-start">
-                {/* Donut */}
-                <div className="w-full md:w-[220px] shrink-0 flex justify-center">
-                    <ResponsiveContainer width={220} height={220}>
-                        <PieChart>
-                            <Pie
-                                data={data}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={62}
-                                outerRadius={96}
-                                paddingAngle={2}
-                                dataKey="value"
-                                stroke="none"
-                            >
-                                {data.map((_, i) => (
-                                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            <div className="px-5 py-5">
+                {chartData.length === 0 ? (
+                    <EmptyState />
+                ) : (
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                        {/* Donut */}
+                        <div className="w-full md:w-[220px] shrink-0 flex justify-center">
+                            <ResponsiveContainer width={220} height={220}>
+                                <PieChart>
+                                    <Pie
+                                        data={chartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={62}
+                                        outerRadius={96}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {chartData.map((_, i) => (
+                                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={(props) => <CustomTooltip {...props} total={total} />} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Legend table */}
+                        <div className="flex-1 w-full">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                                Rincian · {GROUP_OPTIONS.find(g => g.id === group)?.label}
+                            </p>
+                            <div className="space-y-0.5">
+                                {chartData.map((item, i) => (
+                                    <LegendItem
+                                        key={item.name || i}
+                                        name={item.name}
+                                        value={item.value}
+                                        color={COLORS[i % COLORS.length]}
+                                        pct={total > 0 ? ((item.value / total) * 100).toFixed(1) : '0'}
+                                    />
                                 ))}
-                            </Pie>
-                            <Tooltip content={(props) => <CustomTooltip {...props} total={total} />} />
-                        </PieChart>
-                    </ResponsiveContainer>
-
-                    {/* Center label */}
-                    <div className="absolute flex flex-col items-center justify-center pointer-events-none" style={{ marginTop: '70px', marginLeft: '-110px' }}>
-                        {/* Empty — recharts centers the hole */}
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                {/* Legend table */}
-                <div className="flex-1 w-full">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                        Rincian · {GROUP_OPTIONS.find(g => g.id === group)?.label}
-                    </p>
-                    <div className="space-y-0.5">
-                        {data.map((item, i) => (
-                            <LegendItem
-                                key={item.name}
-                                name={item.name}
-                                value={item.value}
-                                color={COLORS[i % COLORS.length]}
-                                pct={((item.value / total) * 100).toFixed(1)}
-                            />
-                        ))}
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
