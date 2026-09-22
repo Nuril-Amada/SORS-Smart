@@ -6,46 +6,78 @@ import {
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────
-   Mock KPI data
-   In production: replace with API call filtered by { dateFrom, dateTo, product, cluster }
+   Config kartu (statis, tidak berubah)
+   Data asli (value, prevValue, unit, description)
+   datang dari prop `data`, yang diisi oleh parent
+   lewat hasil fetch API / query database.
+
+   Bentuk `data` yang diharapkan:
+   {
+     beginningStock: { value, prevValue, unit, description },
+     totalIn:        { value, prevValue, unit, description },
+     totalOut:       { value, prevValue, unit, description },
+     endingStock:    { value, prevValue, unit, description },
+     netGainLoss:    { value, prevValue, unit, description },
+   }
 ───────────────────────────────────────── */
-const MOCK_KPI = {
-    beginningStock: {
-        value: 45230.50,
-        prevValue: 41820.30,
-        unit: 'MT',
-        description: 'Stok awal pada awal periode laporan yang dipilih, dihitung berdasarkan saldo akhir periode sebelumnya.',
+const CARD_CONFIG = [
+    {
+        id: 'beginning-stock',
+        key: 'beginningStock',
+        label: 'Beginning Stock',
+        icon: Warehouse,
+        accentClass: 'bg-blue-500',
+        iconBg: 'bg-blue-50',
+        iconColor: 'text-blue-600',
+        isNetCard: false,
     },
-    totalIn: {
-        value: 12450.75,
-        prevValue: 10980.50,
-        unit: 'MT',
-        description: 'Total volume minyak yang masuk ke seluruh tangki (penerimaan) selama periode yang dipilih.',
+    {
+        id: 'volume-in',
+        key: 'totalIn',
+        label: 'Volume IN',
+        icon: ArrowDownToLine,
+        accentClass: 'bg-emerald-500',
+        iconBg: 'bg-emerald-50',
+        iconColor: 'text-emerald-600',
+        isNetCard: false,
     },
-    totalOut: {
-        value: 8320.25,
-        prevValue: 9150.75,
-        unit: 'MT',
-        description: 'Total volume minyak yang keluar dari seluruh tangki (pengiriman/penjualan) selama periode yang dipilih.',
+    {
+        id: 'volume-out',
+        key: 'totalOut',
+        label: 'Volume OUT',
+        icon: ArrowUpFromLine,
+        accentClass: 'bg-orange-500',
+        iconBg: 'bg-orange-50',
+        iconColor: 'text-orange-600',
+        isNetCard: false,
     },
-    endingStock: {
-        value: 49361.00,
-        prevValue: 43650.05,
-        unit: 'MT',
-        description: 'Stok akhir pada akhir periode laporan: Beginning Stock + IN − OUT.',
+    {
+        id: 'ending-stock',
+        key: 'endingStock',
+        label: 'Ending Stock',
+        icon: PackageCheck,
+        accentClass: 'bg-indigo-500',
+        iconBg: 'bg-indigo-50',
+        iconColor: 'text-indigo-600',
+        isNetCard: false,
     },
-    netGainLoss: {
-        value: 4130.50,
-        prevValue: -170.25,
-        unit: 'MT',
-        description: 'Selisih total IN dikurangi total OUT. Nilai positif = surplus (gain), nilai negatif = defisit (loss).',
+    {
+        id: 'net-gain-loss',
+        key: 'netGainLoss',
+        label: 'Net Gain / Loss',
+        icon: null, // ditentukan dinamis (TrendingUp/Down) berdasarkan value
+        accentClass: null,
+        iconBg: null,
+        iconColor: null,
+        isNetCard: true,
     },
-};
+];
 
 /* ─────────────────────────────────────────
    Helpers
 ───────────────────────────────────────── */
 function formatNum(val) {
+    if (val === undefined || val === null) return '-';
     return new Intl.NumberFormat('id-ID', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -53,18 +85,22 @@ function formatNum(val) {
 }
 
 function pctChange(current, prev) {
-    if (prev == null || prev === 0) return null;
+    if (current == null || prev == null || prev === 0) return null;
     return ((current - prev) / Math.abs(prev)) * 100;
 }
 
 /* ─────────────────────────────────────────
    Single KPI Card
+   Murni presentational — tidak fetch apa pun,
+   hanya menampilkan `item` yang sudah diisi data.
 ───────────────────────────────────────── */
-function KPICard({ id, label, icon: Icon, data, accentClass, iconBg, iconColor, isNetCard }) {
+function KPICard({ id, label, icon: Icon, iconBg, iconColor, accentClass, item, isNetCard }) {
     const [tip, setTip] = useState(false);
-    const change = pctChange(data.value, data.prevValue);
+
+    const hasValue = item && item.value !== undefined && item.value !== null;
+    const change = hasValue ? pctChange(item.value, item.prevValue) : null;
     const isUp = change !== null && change >= 0;
-    const netPositive = data.value >= 0;
+    const netPositive = hasValue ? item.value >= 0 : true;
 
     return (
         <div
@@ -81,23 +117,25 @@ function KPICard({ id, label, icon: Icon, data, accentClass, iconBg, iconColor, 
                         <Icon className={`w-5 h-5 ${iconColor}`} />
                     </div>
 
-                    {/* Tooltip trigger */}
-                    <div className="relative">
-                        <button
-                            onMouseEnter={() => setTip(true)}
-                            onMouseLeave={() => setTip(false)}
-                            className="text-slate-200 hover:text-slate-400 transition-colors mt-0.5"
-                            aria-label="Info"
-                        >
-                            <Info className="w-3.5 h-3.5" />
-                        </button>
-                        {tip && (
-                            <div className="absolute right-0 top-6 w-56 bg-slate-800 text-white text-[10px] rounded-xl p-3 shadow-2xl z-20 leading-relaxed border border-slate-700">
-                                {data.description}
-                                <div className="absolute -top-1.5 right-2 w-3 h-3 bg-slate-800 rotate-45 border-l border-t border-slate-700" />
-                            </div>
-                        )}
-                    </div>
+                    {/* Tooltip trigger — hanya muncul kalau ada description */}
+                    {item?.description && (
+                        <div className="relative">
+                            <button
+                                onMouseEnter={() => setTip(true)}
+                                onMouseLeave={() => setTip(false)}
+                                className="text-slate-200 hover:text-slate-400 transition-colors mt-0.5"
+                                aria-label="Info"
+                            >
+                                <Info className="w-3.5 h-3.5" />
+                            </button>
+                            {tip && (
+                                <div className="absolute right-0 top-6 w-56 bg-slate-800 text-white text-[10px] rounded-xl p-3 shadow-2xl z-20 leading-relaxed border border-slate-700">
+                                    {item.description}
+                                    <div className="absolute -top-1.5 right-2 w-3 h-3 bg-slate-800 rotate-45 border-l border-t border-slate-700" />
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Label */}
@@ -105,19 +143,23 @@ function KPICard({ id, label, icon: Icon, data, accentClass, iconBg, iconColor, 
                     {label}
                 </p>
 
-                {/* Value */}
-                {isNetCard ? (
+                {/* Value — tampil "-" kalau data belum ada */}
+                {!hasValue ? (
+                    <p className="text-2xl font-black text-slate-300 tracking-tight">-</p>
+                ) : isNetCard ? (
                     <p className={`text-2xl font-black tracking-tight ${netPositive ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {netPositive ? '+' : ''}{formatNum(data.value)}
+                        {netPositive ? '+' : ''}{formatNum(item.value)}
                     </p>
                 ) : (
                     <p className="text-2xl font-black text-slate-800 tracking-tight">
-                        {formatNum(data.value)}
+                        {formatNum(item.value)}
                     </p>
                 )}
 
                 {/* Unit */}
-                <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{data.unit}</p>
+                {item?.unit && (
+                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.unit}</p>
+                )}
 
                 {/* Trend vs previous period */}
                 {change !== null && (
@@ -138,88 +180,43 @@ function KPICard({ id, label, icon: Icon, data, accentClass, iconBg, iconColor, 
 
 /* ─────────────────────────────────────────
    KPI Cards Section
+   Presentational only — data datang dari prop `data`.
+   Parent yang bertanggung jawab fetch ke API/database,
+   contoh:
+
+     const [data, setData] = useState({});
+     useEffect(() => {
+       fetch('/api/kpi?...').then(r => r.json()).then(setData);
+     }, [filters]);
+     ...
+     <KPICards data={data} />
 ───────────────────────────────────────── */
-export default function KPICards({ filters }) {
-    // In production: use filters to fetch data from API
-    const kpi = MOCK_KPI;
-
-    const net = kpi.netGainLoss.value >= 0;
-
-    const cards = [
-        {
-            id: 'beginning-stock',
-            label: 'Beginning Stock',
-            icon: Warehouse,
-            data: kpi.beginningStock,
-            accentClass: 'bg-blue-500',
-            iconBg: 'bg-blue-50',
-            iconColor: 'text-blue-600',
-            isNetCard: false,
-        },
-        {
-            id: 'volume-in',
-            label: 'Volume IN',
-            icon: ArrowDownToLine,
-            data: kpi.totalIn,
-            accentClass: 'bg-emerald-500',
-            iconBg: 'bg-emerald-50',
-            iconColor: 'text-emerald-600',
-            isNetCard: false,
-        },
-        {
-            id: 'volume-out',
-            label: 'Volume OUT',
-            icon: ArrowUpFromLine,
-            data: kpi.totalOut,
-            accentClass: 'bg-orange-500',
-            iconBg: 'bg-orange-50',
-            iconColor: 'text-orange-600',
-            isNetCard: false,
-        },
-        {
-            id: 'ending-stock',
-            label: 'Ending Stock',
-            icon: PackageCheck,
-            data: kpi.endingStock,
-            accentClass: 'bg-indigo-500',
-            iconBg: 'bg-indigo-50',
-            iconColor: 'text-indigo-600',
-            isNetCard: false,
-        },
-        {
-            id: 'net-gain-loss',
-            label: 'Net Gain / Loss',
-            icon: net ? TrendingUp : TrendingDown,
-            data: kpi.netGainLoss,
-            accentClass: net ? 'bg-emerald-500' : 'bg-red-500',
-            iconBg: net ? 'bg-emerald-50' : 'bg-red-50',
-            iconColor: net ? 'text-emerald-600' : 'text-red-600',
-            isNetCard: true,
-        },
-    ];
-
+export default function KPICards({ data = {} }) {
     return (
-        <div>
-            {/* Section heading */}
-            <div className="flex items-center gap-2 mb-3">
-                <div className="w-1.5 h-4 rounded-full bg-amber-500" />
-                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-widest">
-                    Key Performance Indicators
-                </h3>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {CARD_CONFIG.map((cfg) => {
+                const item = data[cfg.key];
+                const net = item?.value >= 0;
 
-            {/* Responsive 5-column grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                {cards.map(card => (
-                    <KPICard key={card.id} {...card} />
-                ))}
-            </div>
+                const Icon = cfg.isNetCard ? (net ? TrendingUp : TrendingDown) : cfg.icon;
+                const accentClass = cfg.isNetCard ? (net ? 'bg-emerald-500' : 'bg-red-500') : cfg.accentClass;
+                const iconBg = cfg.isNetCard ? (net ? 'bg-emerald-50' : 'bg-red-50') : cfg.iconBg;
+                const iconColor = cfg.isNetCard ? (net ? 'text-emerald-600' : 'text-red-600') : cfg.iconColor;
 
-            {/* Note */}
-            <p className="text-[10px] text-slate-400 mt-3 font-medium">
-                * Data di atas merupakan simulasi. Nilai aktual akan ditampilkan setelah terhubung ke database operasional.
-                Hover ikon ℹ pada setiap kartu untuk keterangan detail.
-            </p>
+                return (
+                    <KPICard
+                        key={cfg.id}
+                        id={cfg.id}
+                        label={cfg.label}
+                        icon={Icon}
+                        iconBg={iconBg}
+                        iconColor={iconColor}
+                        accentClass={accentClass}
+                        item={item}
+                        isNetCard={cfg.isNetCard}
+                    />
+                );
+            })}
         </div>
     );
 }

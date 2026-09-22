@@ -65,11 +65,10 @@ export default function DataToolbar({ filters, onResetFilters, onExportPDF, onIm
                 <div className="flex-1 min-w-[200px]">
                     {toast && (
                         <div
-                            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium animate-fade-in ${
-                                toast.type === 'error'
-                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
+                            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium animate-fade-in ${toast.type === 'error'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}
                         >
                             {toast.type === 'error' ? (
                                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
@@ -92,7 +91,7 @@ export default function DataToolbar({ filters, onResetFilters, onExportPDF, onIm
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow-amber-200 hover:shadow-md active:scale-95 cursor-pointer"
                     >
                         <FileText className="w-3.5 h-3.5" />
-                        <span>Export PDF</span>
+                        <span>Export Data</span>
                     </button>
 
                     {/* Import Data — Langsung pilih dokumen */}

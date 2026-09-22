@@ -1,15 +1,10 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import React, { useState, useEffect } from 'react';
 import Login from './pages/login';
 import Navbar from './pages/Navbar';
 import Overview from './pages/Overview';
 
-/* ─────────────────────────────────────────────────────────────
-   Lightweight, robust path-based router
-   Mendukung routing URL:
-   - /login     -> Tampil halaman Login
-   - /overview  -> Tampil halaman Overview (+ Navbar)
-   - / (root)   -> Default ke /overview
-───────────────────────────────────────────────────────────── */
+
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => {
     const path = window.location.pathname;
