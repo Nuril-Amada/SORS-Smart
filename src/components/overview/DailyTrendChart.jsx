@@ -61,7 +61,7 @@ function CustomTooltip({ active, payload, label }) {
                         {p.dataKey === 'EndingStock' ? 'Ending Stock' : p.dataKey}
                     </span>
                     <span className="text-stone-900 text-xs font-bold">
-                        {p.value.toLocaleString('id-ID')} MT
+                        {p.value.toLocaleString('id-ID')} KG
                     </span>
                 </div>
             ))}
@@ -135,20 +135,20 @@ export default function DailyTrendChart({ data = [] }) {
                 {data.length > 0 && (
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-700">
-                            IN {totalIN.toLocaleString('id-ID')} MT
+                            IN {totalIN.toLocaleString('id-ID')} KG
                         </span>
                         <span className="px-2.5 py-1 rounded-lg bg-orange-50 border border-orange-200 text-[11px] font-bold text-orange-700">
-                            OUT {totalOUT.toLocaleString('id-ID')} MT
+                            OUT {totalOUT.toLocaleString('id-ID')} KG
                         </span>
                         <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${trend >= 0
                             ? 'bg-blue-50 border-blue-200 text-blue-700'
                             : 'bg-red-50 border-red-200 text-red-600'
                             }`}>
-                            {trend >= 0 ? '+' : ''}{trend.toLocaleString('id-ID')} MT
+                            {trend >= 0 ? '+' : ''}{trend.toLocaleString('id-ID')} KG
                         </span>
                         {lastEndingStock !== null && (
                             <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-700">
-                                Ending Stock {lastEndingStock.toLocaleString('id-ID')} MT
+                                Ending Stock {lastEndingStock.toLocaleString('id-ID')} KG
                             </span>
                         )}
 

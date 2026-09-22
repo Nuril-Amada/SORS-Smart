@@ -23,7 +23,7 @@ function buildDefaultFilters() {
 /* ─────────────────────────────────────────
    Overview page
 ───────────────────────────────────────── */
-export default function Overview() {
+export default function Overview({ onNavigate }) {
     const [filters, setFilters] = useState(buildDefaultFilters);
 
     const handleResetFilters = () => {
@@ -60,7 +60,10 @@ export default function Overview() {
                         </div>
 
                         {/* D — Detail Transaksi Minyak (Tabel Detail 5 Teratas & Lihat Selengkapnya) */}
-                        <OilTransactionDetail filters={filters} />
+                        <OilTransactionDetail
+                            filters={filters}
+                            onViewAll={() => onNavigate ? onNavigate('/detail-transaksi') : (window.history.pushState({}, '', '/detail-transaksi'), window.dispatchEvent(new PopStateEvent('popstate')))}
+                        />
                     </div>
                 </div>
 

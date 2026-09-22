@@ -43,7 +43,7 @@ const TABS = [
 ───────────────────────────────────────── */
 
 /* ─────────────────────────────────────────
-   Custom Tooltip
+   Custom Tooltip — tema putih agak cream
 ───────────────────────────────────────── */
 function CustomTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
@@ -53,39 +53,45 @@ function CustomTooltip({ active, payload, label }) {
     const selisih = inVal - outVal;
 
     return (
-        <div className="bg-slate-900 border border-slate-700 rounded-xl p-3.5 shadow-2xl min-w-[200px]">
-            <p className="text-amber-400 text-[11px] font-bold uppercase tracking-wider mb-3">{label}</p>
+        <div className="bg-[#fefcf8]/95 border border-amber-200/60 rounded-xl p-3.5 shadow-xl min-w-[200px] backdrop-blur-sm">
+            <p className="text-amber-800 text-[11px] font-bold uppercase tracking-wider mb-2.5">
+                {label}
+            </p>
             <div className="space-y-1.5">
-                <div className="flex justify-between gap-6">
-                    <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-6">
+                    <span className="text-xs text-stone-600 flex items-center gap-1.5 font-medium">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
                         Volume IN
                     </span>
-                    <span className="text-xs font-bold text-white">{Number(inVal).toLocaleString('id-ID')} MT</span>
+                    <span className="text-xs font-bold text-stone-900">
+                        {Number(inVal).toLocaleString('id-ID')} KG
+                    </span>
                 </div>
-                <div className="flex justify-between gap-6">
-                    <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-6">
+                    <span className="text-xs text-stone-600 flex items-center gap-1.5 font-medium">
                         <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block" />
                         Volume OUT
                     </span>
-                    <span className="text-xs font-bold text-white">{Number(outVal).toLocaleString('id-ID')} MT</span>
+                    <span className="text-xs font-bold text-stone-900">
+                        {Number(outVal).toLocaleString('id-ID')} KG
+                    </span>
                 </div>
                 {countVal !== undefined && (
-                    <div className="flex justify-between gap-6">
-                        <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-6">
+                        <span className="text-xs text-stone-600 flex items-center gap-1.5 font-medium">
                             <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
                             Jml. Transaksi
                         </span>
-                        <span className="text-xs font-bold text-white">
+                        <span className="text-xs font-bold text-stone-900">
                             {Number(countVal).toLocaleString('id-ID')} trx
                         </span>
                     </div>
                 )}
             </div>
-            <div className="mt-2.5 pt-2.5 border-t border-slate-700 flex justify-between">
-                <span className="text-xs text-slate-400">Selisih</span>
-                <span className={`text-xs font-bold ${selisih >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {selisih >= 0 ? '+' : ''}{Number(selisih).toLocaleString('id-ID')} MT
+            <div className="mt-2.5 pt-2 border-t border-amber-100 flex items-center justify-between">
+                <span className="text-xs text-stone-500 font-medium">Selisih</span>
+                <span className={`text-xs font-bold ${selisih >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {selisih >= 0 ? '+' : ''}{Number(selisih).toLocaleString('id-ID')} KG
                 </span>
             </div>
         </div>
@@ -102,12 +108,12 @@ function SummaryRow({ data }) {
     const selisih = totalIN - totalOUT;
 
     const items = [
-        { label: 'Total IN', value: `${totalIN.toLocaleString('id-ID')} MT`, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-        { label: 'Total OUT', value: `${totalOUT.toLocaleString('id-ID')} MT`, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+        { label: 'Total IN', value: `${totalIN.toLocaleString('id-ID')} KG`, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+        { label: 'Total OUT', value: `${totalOUT.toLocaleString('id-ID')} KG`, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
         ...(totalCount > 0 ? [{ label: 'Transaksi', value: `${totalCount.toLocaleString('id-ID')} trx`, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200' }] : []),
         {
             label: 'Net Selisih',
-            value: `${selisih >= 0 ? '+' : ''}${selisih.toLocaleString('id-ID')} MT`,
+            value: `${selisih >= 0 ? '+' : ''}${selisih.toLocaleString('id-ID')} KG`,
             color: selisih >= 0 ? 'text-blue-600' : 'text-red-600',
             bg: selisih >= 0 ? 'bg-blue-50' : 'bg-red-50',
             border: selisih >= 0 ? 'border-blue-200' : 'border-red-200',
@@ -172,7 +178,7 @@ export default function TransactionByUnitChart({ data = [], filters, onTabChange
                     <div>
                         <h3 className="font-bold text-slate-800 text-sm">Transaksi per {TABS.find(t => t.id === activeTab)?.label}</h3>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                            Volume IN &amp; OUT · Satuan: MT
+                            Volume IN &amp; OUT · Satuan: KG
                         </p>
                     </div>
                 </div>
@@ -222,7 +228,7 @@ export default function TransactionByUnitChart({ data = [], filters, onTabChange
                                     tickFormatter={v => `${(v / 1000).toFixed(v >= 1000 ? 1 : 0)}${v >= 1000 ? 'k' : ''}`}
                                     width={36}
                                 />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fffbeb' }} />
                                 <Legend
                                     wrapperStyle={{ fontSize: 11, paddingTop: 14 }}
                                     formatter={(value) => (

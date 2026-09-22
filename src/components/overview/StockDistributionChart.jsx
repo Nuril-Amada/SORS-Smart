@@ -56,19 +56,29 @@ const GROUP_OPTIONS = [
 ───────────────────────────────────────── */
 
 /* ─────────────────────────────────────────
-   Custom Tooltip
+   Custom Tooltip — tema putih agak cream
 ───────────────────────────────────────── */
 function CustomTooltip({ active, payload, total }) {
     if (!active || !payload?.length) return null;
     const item = payload[0];
     const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
     return (
-        <div className="bg-slate-900 border border-slate-700 rounded-xl p-3.5 shadow-2xl min-w-[170px]">
-            <p className="text-xs font-bold text-white mb-1">{item.name}</p>
-            <p className="text-amber-400 text-sm font-black">
-                {Number(item.value || 0).toLocaleString('id-ID', { minimumFractionDigits: 1 })} MT
+        <div className="bg-[#fefcf8]/95 border border-amber-200/60 rounded-xl p-3.5 shadow-xl min-w-[175px] backdrop-blur-sm">
+            <p className="text-amber-800 text-[11px] font-bold uppercase tracking-wider mb-2">
+                {item.name}
             </p>
-            <p className="text-slate-400 text-[11px] mt-0.5">{pct}% dari total stok</p>
+            <div className="space-y-1">
+                <div className="flex items-center justify-between gap-4">
+                    <span className="text-stone-600 text-xs font-medium">Volume Stok</span>
+                    <span className="text-stone-900 text-xs font-bold">
+                        {Number(item.value || 0).toLocaleString('id-ID', { minimumFractionDigits: 1 })} KG
+                    </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-amber-100">
+                    <span className="text-stone-500 text-[11px]">Proporsi</span>
+                    <span className="text-amber-700 text-xs font-bold">{pct}%</span>
+                </div>
+            </div>
         </div>
     );
 }
@@ -87,7 +97,7 @@ function LegendItem({ name, value, color, pct }) {
                 <span className="text-xs font-bold text-slate-800">
                     {Number(value || 0).toLocaleString('id-ID', { minimumFractionDigits: 1 })}
                 </span>
-                <span className="text-[10px] text-slate-400 ml-1">MT</span>
+                <span className="text-[10px] text-slate-400 ml-1">KG</span>
                 <span className="text-[10px] text-amber-500 ml-2 font-semibold">{pct}%</span>
             </div>
         </div>
@@ -146,7 +156,7 @@ export default function StockDistributionChart({ data = [], filters, onGroupChan
                         <p className="text-[11px] text-slate-500 mt-0.5">
                             Total stok akhir ·{' '}
                             <span className="font-bold text-slate-700">
-                                {total.toLocaleString('id-ID', { minimumFractionDigits: 1 })} MT
+                                {total.toLocaleString('id-ID', { minimumFractionDigits: 1 })} KG
                             </span>
                         </p>
                     </div>

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import Login from './pages/login';
 import Navbar from './pages/Navbar';
 import Overview from './pages/Overview';
-
+import OilTransactions from './pages/OilTransactions';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => {
     const path = window.location.pathname;
-    return path === '/login' ? '/login' : '/overview';
+    if (path === '/login') return '/login';
+    if (path === '/detail-transaksi' || path === '/transactions') return '/detail-transaksi';
+    return '/overview';
   });
 
   const [user, setUser] = useState({
@@ -20,7 +22,9 @@ export default function App() {
   useEffect(() => {
     const onPopState = () => {
       const path = window.location.pathname;
-      setCurrentPath(path === '/login' ? '/login' : '/overview');
+      if (path === '/login') setCurrentPath('/login');
+      else if (path === '/detail-transaksi' || path === '/transactions') setCurrentPath('/detail-transaksi');
+      else setCurrentPath('/overview');
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -50,11 +54,21 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Jika URL adalah /overview atau lainnya -> Tampilkan Overview
+  // Jika URL adalah /detail-transaksi -> Tampilkan Halaman Detail Transaksi Minyak + Navbar
+  if (currentPath === '/detail-transaksi' || currentPath === '/transactions') {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Navbar user={user} onLogout={handleLogout} />
+        <OilTransactions onBack={() => navigateTo('/overview')} />
+      </div>
+    );
+  }
+
+  // Default: Tampilkan Overview + Navbar
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar user={user} onLogout={handleLogout} />
-      <Overview />
+      <Overview onNavigate={navigateTo} />
     </div>
   );
 }
