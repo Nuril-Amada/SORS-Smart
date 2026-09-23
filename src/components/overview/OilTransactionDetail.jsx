@@ -9,11 +9,11 @@ import {
 ───────────────────────────────────────────────────────────────────────────── */
 export function getTankCluster(tankName) {
     if (!tankName) return '';
-    if (tankName.startsWith('TC'))  return 'C';
-    if (tankName.startsWith('TI'))  return 'I';
-    if (tankName.startsWith('TP'))  return 'P';
-    if (tankName.startsWith('TF'))  return 'F'; // TTF juga masuk cluster F
-    if (tankName.startsWith('TB'))  return 'B';
+    if (tankName.startsWith('TC')) return 'C';
+    if (tankName.startsWith('TI')) return 'I';
+    if (tankName.startsWith('TP')) return 'P';
+    if (tankName.startsWith('TF')) return 'F'; // TTF juga masuk cluster F
+    if (tankName.startsWith('TB')) return 'B';
     return '';
 }
 
@@ -31,24 +31,24 @@ export const CLUSTER_LIST = [
    (TC1-TC8, TI1-TI9, TP1-TP22, TF2-TF3, TB1-TB6, TTF)
 ───────────────────────────────────────────────────────────────────────────── */
 const INITIAL_TRANSACTIONS = [
-    { id: 'TRX-2026-001', date: '2026-09-22 10:45', product: 'CPO',         tank: 'TC1',  cluster: 'C',   inFlow: 1450.5, outFlow: 0,      tempIn: 52.3, tempOut: 55.6 },
-    { id: 'TRX-2026-002', date: '2026-09-22 09:15', product: 'RBD Olein',   tank: 'TP4',  cluster: 'P',   inFlow: 0,      outFlow: 820.0,  tempIn: 48.0, tempOut: 47.2 },
-    { id: 'TRX-2026-003', date: '2026-09-22 07:30', product: 'RBD Stearin', tank: 'TI2',  cluster: 'I',   inFlow: 920.0,  outFlow: 450.2,  tempIn: 61.5, tempOut: 62.1 },
-    { id: 'TRX-2026-004', date: '2026-09-21 16:50', product: 'PFAD',        tank: 'TF2',  cluster: 'F',   inFlow: 650.0,  outFlow: 0,      tempIn: 58.2, tempOut: 57.5 },
-    { id: 'TRX-2026-005', date: '2026-09-21 14:10', product: 'PKO',         tank: 'TB1',  cluster: 'B',   inFlow: 0,      outFlow: 730.4,  tempIn: 45.2, tempOut: 45.2 },
-    { id: 'TRX-2026-006', date: '2026-09-21 11:25', product: 'CPO',         tank: 'TC5',  cluster: 'C',   inFlow: 1200.0, outFlow: 600.0,  tempIn: 53.0, tempOut: 56.2 },
-    { id: 'TRX-2026-007', date: '2026-09-20 15:40', product: 'RBDPO',       tank: 'TTF',  cluster: 'F',   inFlow: 850.5,  outFlow: 400.0,  tempIn: 50.1, tempOut: 51.4 },
-    { id: 'TRX-2026-008', date: '2026-09-20 13:10', product: 'RBD Olein',   tank: 'TP10', cluster: 'P',   inFlow: 1100.0, outFlow: 0,      tempIn: 49.5, tempOut: 48.8 },
-    { id: 'TRX-2026-009', date: '2026-09-19 16:00', product: 'RBD Stearin', tank: 'TI7',  cluster: 'I',   inFlow: 0,      outFlow: 550.0,  tempIn: 60.8, tempOut: 62.4 },
-    { id: 'TRX-2026-010', date: '2026-09-19 10:20', product: 'CPO',         tank: 'TC2',  cluster: 'C',   inFlow: 1780.0, outFlow: 920.0,  tempIn: 51.8, tempOut: 54.9 },
-    { id: 'TRX-2026-011', date: '2026-09-18 14:35', product: 'PFAD',        tank: 'TF3',  cluster: 'F',   inFlow: 420.0,  outFlow: 310.0,  tempIn: 57.0, tempOut: 56.2 },
-    { id: 'TRX-2026-012', date: '2026-09-18 09:05', product: 'PKO',         tank: 'TB3',  cluster: 'B',   inFlow: 890.0,  outFlow: 0,      tempIn: 44.8, tempOut: 46.1 },
-    { id: 'TRX-2026-013', date: '2026-09-17 15:50', product: 'RBDPO',       tank: 'TP12', cluster: 'P',   inFlow: 0,      outFlow: 620.0,  tempIn: 51.2, tempOut: 50.8 },
-    { id: 'TRX-2026-014', date: '2026-09-17 11:15', product: 'CPO',         tank: 'TC8',  cluster: 'C',   inFlow: 1350.0, outFlow: 0,      tempIn: 52.6, tempOut: 55.1 },
-    { id: 'TRX-2026-015', date: '2026-09-16 16:20', product: 'RBD Olein',   tank: 'TI5',  cluster: 'I',   inFlow: 980.0,  outFlow: 750.0,  tempIn: 48.7, tempOut: 49.3 },
-    { id: 'TRX-2026-016', date: '2026-09-16 10:00', product: 'RBD Stearin', tank: 'TP22', cluster: 'P',   inFlow: 650.0,  outFlow: 0,      tempIn: 62.0, tempOut: 62.5 },
-    { id: 'TRX-2026-017', date: '2026-09-15 14:40', product: 'CPO',         tank: 'TC3',  cluster: 'C',   inFlow: 1600.0, outFlow: 1100.0, tempIn: 52.1, tempOut: 55.4 },
-    { id: 'TRX-2026-018', date: '2026-09-15 08:30', product: 'PFAD',        tank: 'TB6',  cluster: 'B',   inFlow: 0,      outFlow: 490.0,  tempIn: 58.5, tempOut: 57.1 },
+    { id: 'TRX-2026-001', date: '2026-09-22', product: 'CPO', tank: 'TC1', cluster: 'C', inFlow: 1450.5, outFlow: 0, tempIn: 52.3, tempOut: 55.6 },
+    { id: 'TRX-2026-002', date: '2026-09-22', product: 'RBD Olein', tank: 'TP4', cluster: 'P', inFlow: 0, outFlow: 820.0, tempIn: 48.0, tempOut: 47.2 },
+    { id: 'TRX-2026-003', date: '2026-09-22', product: 'RBD Stearin', tank: 'TI2', cluster: 'I', inFlow: 920.0, outFlow: 450.2, tempIn: 61.5, tempOut: 62.1 },
+    { id: 'TRX-2026-004', date: '2026-09-21', product: 'PFAD', tank: 'TF2', cluster: 'F', inFlow: 650.0, outFlow: 0, tempIn: 58.2, tempOut: 57.5 },
+    { id: 'TRX-2026-005', date: '2026-09-21', product: 'PKO', tank: 'TB1', cluster: 'B', inFlow: 0, outFlow: 730.4, tempIn: 45.2, tempOut: 45.2 },
+    { id: 'TRX-2026-006', date: '2026-09-21', product: 'CPO', tank: 'TC5', cluster: 'C', inFlow: 1200.0, outFlow: 600.0, tempIn: 53.0, tempOut: 56.2 },
+    { id: 'TRX-2026-007', date: '2026-09-20', product: 'RBDPO', tank: 'TTF', cluster: 'F', inFlow: 850.5, outFlow: 400.0, tempIn: 50.1, tempOut: 51.4 },
+    { id: 'TRX-2026-008', date: '2026-09-20', product: 'RBD Olein', tank: 'TP10', cluster: 'P', inFlow: 1100.0, outFlow: 0, tempIn: 49.5, tempOut: 48.8 },
+    { id: 'TRX-2026-009', date: '2026-09-19', product: 'RBD Stearin', tank: 'TI7', cluster: 'I', inFlow: 0, outFlow: 550.0, tempIn: 60.8, tempOut: 62.4 },
+    { id: 'TRX-2026-010', date: '2026-09-19', product: 'CPO', tank: 'TC2', cluster: 'C', inFlow: 1780.0, outFlow: 920.0, tempIn: 51.8, tempOut: 54.9 },
+    { id: 'TRX-2026-011', date: '2026-09-18', product: 'PFAD', tank: 'TF3', cluster: 'F', inFlow: 420.0, outFlow: 310.0, tempIn: 57.0, tempOut: 56.2 },
+    { id: 'TRX-2026-012', date: '2026-09-18', product: 'PKO', tank: 'TB3', cluster: 'B', inFlow: 890.0, outFlow: 0, tempIn: 44.8, tempOut: 46.1 },
+    { id: 'TRX-2026-013', date: '2026-09-17', product: 'RBDPO', tank: 'TP12', cluster: 'P', inFlow: 0, outFlow: 620.0, tempIn: 51.2, tempOut: 50.8 },
+    { id: 'TRX-2026-014', date: '2026-09-17', product: 'CPO', tank: 'TC8', cluster: 'C', inFlow: 1350.0, outFlow: 0, tempIn: 52.6, tempOut: 55.1 },
+    { id: 'TRX-2026-015', date: '2026-09-16', product: 'RBD Olein', tank: 'TI5', cluster: 'I', inFlow: 980.0, outFlow: 750.0, tempIn: 48.7, tempOut: 49.3 },
+    { id: 'TRX-2026-016', date: '2026-09-16', product: 'RBD Stearin', tank: 'TP22', cluster: 'P', inFlow: 650.0, outFlow: 0, tempIn: 62.0, tempOut: 62.5 },
+    { id: 'TRX-2026-017', date: '2026-09-15', product: 'CPO', tank: 'TC3', cluster: 'C', inFlow: 1600.0, outFlow: 1100.0, tempIn: 52.1, tempOut: 55.4 },
+    { id: 'TRX-2026-018', date: '2026-09-15', product: 'PFAD', tank: 'TB6', cluster: 'B', inFlow: 0, outFlow: 490.0, tempIn: 58.5, tempOut: 57.1 },
 ];
 
 const PRODUCT_LIST = ['Semua Produk', 'CPO', 'RBD Olein', 'RBD Stearin', 'PFAD', 'PKO', 'RBDPO'];
@@ -123,7 +123,7 @@ export default function OilTransactionDetail({ filters, onViewAll }) {
             result = result.filter((item) => {
                 const clusterMatch = item.cluster
                     ? item.cluster.toLowerCase() === query ||
-                      item.cluster.toLowerCase().includes(query)
+                    item.cluster.toLowerCase().includes(query)
                     : false;
                 if (singleLetter && clusterMatch) return true;
                 return (
@@ -418,9 +418,8 @@ export default function OilTransactionDetail({ filters, onViewAll }) {
                                         </td>
                                         <td className="py-3 px-4 whitespace-nowrap">
                                             <span
-                                                className={`px-2 py-0.5 rounded-lg border text-[11px] font-bold ${
-                                                    PRODUCT_BADGE_STYLES[row.product] || 'bg-slate-100 text-slate-700 border-slate-200'
-                                                }`}
+                                                className={`px-2 py-0.5 rounded-lg border text-[11px] font-bold ${PRODUCT_BADGE_STYLES[row.product] || 'bg-slate-100 text-slate-700 border-slate-200'
+                                                    }`}
                                             >
                                                 {row.product}
                                             </span>

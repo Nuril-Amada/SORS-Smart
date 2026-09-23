@@ -1,74 +1,137 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from 'react-router-dom';
+
 import Login from './pages/login';
 import Navbar from './pages/Navbar';
 import Overview from './pages/Overview';
 import OilTransactions from './pages/OilTransactions';
 
-export default function App() {
-  const [currentPath, setCurrentPath] = useState(() => {
-    const path = window.location.pathname;
-    if (path === '/login') return '/login';
-    if (path === '/detail-transaksi' || path === '/transactions') return '/detail-transaksi';
-    return '/overview';
-  });
+/* ─────────────────────────────────────────
+   Layout untuk halaman yang WAJIB login.
+   Kalau user belum login (null) -> redirect ke /login.
+───────────────────────────────────────── */
+function ProtectedLayout({ user, onLogout, children }) {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar user={user} onLogout={onLogout} />
+      {children}
+    </div>
+  );
+}
 
+/* ─────────────────────────────────────────
+   Route /login
+   Kalau user SUDAH login -> langsung lempar ke /overview
+   (biar tidak bisa balik ke halaman login lagi setelah login).
+───────────────────────────────────────── */
+function LoginRoute({ user, onLogin }) {
+  const navigate = useNavigate();
+
+  if (user) {
+    return <Navigate to="/overview" replace />;
+  }
+
+  return (
+    <Login
+      onLogin={(userData) => {
+        onLogin(userData);
+        navigate('/overview');
+      }}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────
+   Route /overview
+───────────────────────────────────────── */
+function OverviewRoute({ user, onLogout }) {
+  const navigate = useNavigate();
+  return (
+    <ProtectedLayout user={user} onLogout={onLogout}>
+      <Overview onNavigate={(path) => navigate(path)} />
+    </ProtectedLayout>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Route /detail-transaksi
+───────────────────────────────────────── */
+function OilTransactionsRoute({ user, onLogout }) {
+  const navigate = useNavigate();
+  return (
+    <ProtectedLayout user={user} onLogout={onLogout}>
+      <OilTransactions onBack={() => navigate('/overview')} />
+    </ProtectedLayout>
+  );
+}
+
+/* ─────────────────────────────────────────
+   App
+───────────────────────────────────────── */
+export default function App() {
+  // Ganti default ini kalau nanti login sudah terhubung ke backend beneran —
+  // idealnya user awalnya `null` (belum login) sampai handleLogin dipanggil.
   const [user, setUser] = useState({
     username: 'admin',
     fullName: 'Nuril',
     role: 'Super Admin',
   });
 
-  // Sinkronisasi dengan tombol back/forward browser atau pergantian URL
-  useEffect(() => {
-    const onPopState = () => {
-      const path = window.location.pathname;
-      if (path === '/login') setCurrentPath('/login');
-      else if (path === '/detail-transaksi' || path === '/transactions') setCurrentPath('/detail-transaksi');
-      else setCurrentPath('/overview');
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
-  const navigateTo = (path) => {
-    window.history.pushState({}, '', path);
-    setCurrentPath(path);
-  };
-
   const handleLogin = (userData) => {
-    setUser(userData || {
-      username: 'admin',
-      fullName: 'Nuril',
-      role: 'Super Admin',
-    });
-    navigateTo('/overview');
+    setUser(
+      userData || {
+        username: 'admin',
+        fullName: 'Nuril',
+        role: 'Super Admin',
+      }
+    );
   };
 
   const handleLogout = () => {
     setUser(null);
-    navigateTo('/login');
   };
 
-  // Jika URL adalah /login -> Tampilkan halaman Login
-  if (currentPath === '/login') {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  // Jika URL adalah /detail-transaksi -> Tampilkan Halaman Detail Transaksi Minyak + Navbar
-  if (currentPath === '/detail-transaksi' || currentPath === '/transactions') {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <Navbar user={user} onLogout={handleLogout} />
-        <OilTransactions onBack={() => navigateTo('/overview')} />
-      </div>
-    );
-  }
-
-  // Default: Tampilkan Overview + Navbar
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar user={user} onLogout={handleLogout} />
-      <Overview onNavigate={navigateTo} />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Login */}
+        <Route
+          path="/login"
+          element={<LoginRoute user={user} onLogin={handleLogin} />}
+        />
+
+        {/* Overview (default halaman utama setelah login) */}
+        <Route
+          path="/overview"
+          element={<OverviewRoute user={user} onLogout={handleLogout} />}
+        />
+
+        {/* Detail Transaksi Minyak */}
+        <Route
+          path="/detail-transaksi"
+          element={<OilTransactionsRoute user={user} onLogout={handleLogout} />}
+        />
+        {/* Alias lama /transactions tetap diarahkan ke /detail-transaksi */}
+        <Route
+          path="/transactions"
+          element={<Navigate to="/detail-transaksi" replace />}
+        />
+
+        {/* Path lain (termasuk "/") -> overview kalau login, login kalau belum */}
+        <Route
+          path="*"
+          element={<Navigate to={user ? '/overview' : '/login'} replace />}
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }

@@ -22,11 +22,24 @@ export function getDefaultDates() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   FilterBar Component
-   - Action buttons berada di POJOK KANAN ATAS
-   - Tombol Hapus Data di sebelah kanan Reset Filter
-   - Modal konfirmasi hapus data periode dengan gaya konsisten Master Data
-   - Tulisan periode di pojok kiri atas telah dihapus
+   FilterBar Component (digabung dengan DataToolbar)
+
+   Notifikasi (mengikuti pola FilterDashboard):
+   - Reset Filter : notif HIJAU langsung muncul (aksi lokal, tanpa backend)
+   - Import Data  : ✅ notif HIJAU setelah backend konfirmasi berhasil
+                    (pesan bisa diganti pakai string hasil return onImportFile)
+   - Export Data  : ✅ notif HIJAU setelah backend konfirmasi berhasil
+                    (pesan bisa diganti pakai string hasil return onExportPDF)
+   - Hapus Data   : ✅ notif MERAH (tipe 'delete') setelah backend konfirmasi
+                    berhasil hapus — merah di sini bukan berarti gagal, tapi
+                    penekanan visual bahwa data sudah dihapus permanen.
+                    Modal ditutup baik saat berhasil maupun gagal.
+   - Gagal (apa pun): ❌ notif MERAH (tipe 'error'), pesan dari err.message
+                    kalau tersedia, atau pesan default.
+
+   Semua handler (export/import/hapus) bersifat async — mereka
+   `await` fungsi dari parent (yang nantinya memanggil API), dan toast
+   sukses HANYA muncul setelah await selesai tanpa error.
 ───────────────────────────────────────────────────────────── */
 export default function FilterBar({
     filters,
@@ -42,6 +55,12 @@ export default function FilterBar({
     const fileInputRef = useRef(null);
     const [toast, setToast] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    // Loading state per aksi — dipakai untuk menonaktifkan tombol & tampilkan status
+    // "Memproses..." saat request ke backend sedang berjalan.
+    const [isExporting, setIsExporting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Variabel untuk modal konfirmasi
     const tanggalAwal = dateFrom;
@@ -72,7 +91,7 @@ export default function FilterBar({
         }
     };
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -84,29 +103,78 @@ export default function FilterBar({
             return;
         }
 
-        if (onImportFile) {
-            onImportFile(file);
+        setIsImporting(true);
+        try {
+            // onImportFile diharapkan berupa async function. Kalau dia me-return
+            // string, string itu yang dipakai jadi pesan toast; kalau tidak,
+            // pakai pesan default. Kalau melempar error (throw), masuk ke catch.
+            let message = `Dokumen "${file.name}" (${(file.size / 1024).toFixed(1)} KB) berhasil diimpor.`;
+            if (onImportFile) {
+                const result = await onImportFile(file);
+                if (typeof result === 'string' && result) message = result;
+            }
+            // ✅ Notif hijau HANYA muncul setelah backend konfirmasi berhasil
+            showToast(message, 'success');
+        } catch (err) {
+            // ❌ Notif merah kalau backend menolak / request gagal
+            console.error('Gagal mengimport file:', err);
+            showToast(err?.message || `Gagal mengimpor "${file.name}".`, 'error');
+        } finally {
+            setIsImporting(false);
         }
-
-        showToast(`Dokumen "${file.name}" (${(file.size / 1024).toFixed(1)} KB) berhasil dipilih.`);
     };
 
-    /* ── Export PDF — Trigger button untuk backend ── */
-    const handleExportPDF = () => {
-        if (onExportPDF) {
-            onExportPDF(filters);
-        } else {
-            showToast('Permintaan cetak PDF dikirim ke backend server...');
+    /* ── Export — Panggil handler dari parent (async), tunggu hasilnya, lalu tampilkan notif ──
+       Mengikuti pola generik handleExport di FilterDashboard: bisa dipakai untuk
+       lebih dari satu jenis export (mis. PDF & Excel) kalau nanti ditambahkan. */
+    const handleExport = async (exportFn, fallbackLabel) => {
+        if (!exportFn) return;
+        setIsExporting(true);
+        try {
+            const result = await exportFn(filters);
+            showToast(
+                typeof result === 'string' && result ? result : `${fallbackLabel} berhasil.`,
+                'success'
+            );
+        } catch (err) {
+            console.error(`Gagal ${fallbackLabel}:`, err);
+            showToast(err?.message || `Gagal ${fallbackLabel}.`, 'error');
+        } finally {
+            setIsExporting(false);
         }
+    };
+
+    const handleExportPDF = () => handleExport(onExportPDF, 'Export data');
+
+    /* ── Reset Filter: mereset SEMUA filter (tanggal, produk, cluster) via parent ── */
+    const handleResetFilters = () => {
+        if (onResetFilters) {
+            onResetFilters();
+        }
+        // Reset murni aksi lokal (tidak butuh backend), jadi toast langsung muncul
+        showToast('Filter berhasil di-reset.', 'success');
     };
 
     /* ── Eksekusi Hapus Data Periode ── */
-    const handleConfirmDelete = () => {
-        setShowDeleteModal(false);
-        if (onDeleteData) {
-            onDeleteData(filters);
+    const handleConfirmDelete = async () => {
+        setIsDeleting(true);
+        try {
+            let message = `Data transaksi periode ${formatDateDisplay(dateFrom)} s/d ${formatDateDisplay(dateTo)} berhasil dihapus.`;
+            if (onDeleteData) {
+                const result = await onDeleteData(filters);
+                if (typeof result === 'string' && result) message = result;
+            }
+            setShowDeleteModal(false);
+            // ✅ notif sukses hapus tetap MERAH (tipe 'delete', bukan 'error')
+            showToast(message, 'delete');
+        } catch (err) {
+            // ❌ Modal tetap ditutup, tapi tampilkan pesan gagal (tipe 'error') kalau backend menolak
+            setShowDeleteModal(false);
+            console.error('Gagal menghapus data periode:', err);
+            showToast(err?.message || 'Gagal menghapus data periode.', 'error');
+        } finally {
+            setIsDeleting(false);
         }
-        showToast(`Data transaksi periode ${formatDateDisplay(dateFrom)} s/d ${formatDateDisplay(dateTo)} berhasil dihapus.`, 'success');
     };
 
     return (
@@ -124,17 +192,16 @@ export default function FilterBar({
                 BARIS ATAS: Action Buttons di Pojok Kanan Atas
             ═══════════════════════════════════════════════════════ */}
             <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
-                {/* Area Kiri: Hanya menampilkan Toast Feedback jika aktif (tulisan periode dihapus) */}
+                {/* Area Kiri: Hanya menampilkan Toast Feedback jika aktif */}
                 <div className="flex-1 min-w-[200px]">
                     {toast && (
                         <div
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium animate-in fade-in duration-200 ${
-                                toast.type === 'error'
-                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium animate-in fade-in duration-200 ${toast.type === 'error' || toast.type === 'delete'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}
                         >
-                            {toast.type === 'error' ? (
+                            {toast.type === 'error' || toast.type === 'delete' ? (
                                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                             ) : (
                                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -146,37 +213,39 @@ export default function FilterBar({
 
                 {/* Tombol Aksi di Pojok Kanan Atas */}
                 <div className="flex items-center gap-2.5 flex-wrap justify-end">
-                    {/* 1. Export PDF */}
+                    {/* 1. Export Data — dinonaktifkan & label berubah saat request berjalan */}
                     <button
                         id="export-pdf-btn"
                         type="button"
                         onClick={handleExportPDF}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow-amber-200 hover:shadow-md active:scale-95 cursor-pointer"
-                        title="Export data laporan ke PDF"
+                        disabled={isExporting}
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold transition-all shadow-sm hover:shadow-amber-200 hover:shadow-md active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
+                        title="Export data laporan"
                     >
                         <FileText className="w-3.5 h-3.5" />
-                        <span>Export PDF</span>
+                        <span>{isExporting ? 'Mengexport...' : 'Export Data'}</span>
                     </button>
 
-                    {/* 2. Import Data */}
+                    {/* 2. Import Data — dinonaktifkan & label berubah saat request berjalan */}
                     <button
                         id="import-data-btn"
                         type="button"
                         onClick={handleImportClick}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-sm hover:shadow-md active:scale-95 cursor-pointer"
+                        disabled={isImporting}
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all shadow-sm hover:shadow-md active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
                         title="Import file dokumen (CSV / Excel)"
                     >
                         <Upload className="w-3.5 h-3.5" />
-                        <span>Import Data</span>
+                        <span>{isImporting ? 'Mengimpor...' : 'Import Data'}</span>
                     </button>
 
-                    {/* 3. Reset Filter */}
+                    {/* 3. Reset Filter — otomatis mereset tanggal, produk, dan cluster */}
                     <button
                         id="reset-filter-btn"
                         type="button"
-                        onClick={onResetFilters}
+                        onClick={handleResetFilters}
                         className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-600 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                        title="Kembalikan filter ke kondisi awal"
+                        title="Kembalikan semua filter ke kondisi awal (tanggal, produk, cluster)"
                     >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Reset Filter</span>
@@ -187,7 +256,8 @@ export default function FilterBar({
                         id="delete-data-btn"
                         type="button"
                         onClick={() => setShowDeleteModal(true)}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 hover:border-rose-300 text-rose-600 hover:text-rose-700 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        disabled={isDeleting}
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 hover:border-rose-300 text-rose-600 hover:text-rose-700 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
                         title="Hapus data transaksi pada periode tanggal terpilih"
                     >
                         <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -364,6 +434,7 @@ export default function FilterBar({
                                     <button
                                         type="button"
                                         onClick={() => setShowDeleteModal(false)}
+                                        disabled={isDeleting}
                                         style={{
                                             border: "1.5px solid #e5e7eb",
                                             borderRadius: "10px",
@@ -371,7 +442,8 @@ export default function FilterBar({
                                             fontSize: "13px",
                                             color: "#6b7280",
                                             background: "#fff",
-                                            cursor: "pointer",
+                                            cursor: isDeleting ? "not-allowed" : "pointer",
+                                            opacity: isDeleting ? 0.6 : 1,
                                             fontWeight: 500,
                                         }}
                                     >
@@ -380,6 +452,7 @@ export default function FilterBar({
                                     <button
                                         type="button"
                                         onClick={handleConfirmDelete}
+                                        disabled={isDeleting}
                                         style={{
                                             background: "linear-gradient(135deg, #ef4444, #dc2626)",
                                             border: "none",
@@ -387,11 +460,12 @@ export default function FilterBar({
                                             padding: "8px 20px",
                                             fontSize: "13px",
                                             color: "#fff",
-                                            cursor: "pointer",
+                                            cursor: isDeleting ? "not-allowed" : "pointer",
+                                            opacity: isDeleting ? 0.7 : 1,
                                             fontWeight: 600,
                                         }}
                                     >
-                                        Ya, Hapus
+                                        {isDeleting ? "Menghapus..." : "Ya, Hapus"}
                                     </button>
                                 </>
                             ) : (

@@ -8,9 +8,10 @@ import OilTransactionDetail from '../components/overview/OilTransactionDetail';
 import { ArrowRight, BarChart2 } from 'lucide-react';
 
 /* ─────────────────────────────────────────
-   Default filter state: current month
+   Default filter state SAAT PERTAMA BUKA HALAMAN: current month
+   (dipakai hanya untuk initial state, BUKAN untuk reset)
 ───────────────────────────────────────── */
-function buildDefaultFilters() {
+function buildInitialFilters() {
     const dates = getDefaultDates();
     return {
         dateFrom: dates.dateFrom,
@@ -21,13 +22,27 @@ function buildDefaultFilters() {
 }
 
 /* ─────────────────────────────────────────
+   Default filter state SAAT TOMBOL RESET DIKLIK:
+   tanggal dikosongkan (placeholder dd/mm/yyyy),
+   bukan balik ke bulan berjalan.
+───────────────────────────────────────── */
+function buildEmptyFilters() {
+    return {
+        dateFrom: '',
+        dateTo: '',
+        product: '',
+        cluster: '',
+    };
+}
+
+/* ─────────────────────────────────────────
    Overview page
 ───────────────────────────────────────── */
 export default function Overview({ onNavigate }) {
-    const [filters, setFilters] = useState(buildDefaultFilters);
+    const [filters, setFilters] = useState(buildInitialFilters);
 
     const handleResetFilters = () => {
-        setFilters(buildDefaultFilters());
+        setFilters(buildEmptyFilters());
     };
 
     return (
