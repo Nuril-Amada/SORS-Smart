@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Warehouse, ArrowDownToLine, ArrowUpFromLine,
     PackageCheck, TrendingUp, TrendingDown,
-    ChevronUp, ChevronDown, Info
+    ChevronUp, ChevronDown, Info, Thermometer
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────
@@ -13,11 +13,12 @@ import {
 
    Bentuk `data` yang diharapkan:
    {
-     beginningStock: { value, prevValue, unit, description },
-     totalIn:        { value, prevValue, unit, description },
-     totalOut:       { value, prevValue, unit, description },
-     endingStock:    { value, prevValue, unit, description },
-     netGainLoss:    { value, prevValue, unit, description },
+     beginningStock:    { value, prevValue, unit, description },
+     totalIn:           { value, prevValue, unit, description },
+     totalOut:          { value, prevValue, unit, description },
+     endingStock:       { value, prevValue, unit, description },
+     netGainLoss:       { value, prevValue, unit, description },
+     avgTemperature:    { value, prevValue, unit, description },
    }
 ───────────────────────────────────────── */
 const CARD_CONFIG = [
@@ -70,6 +71,16 @@ const CARD_CONFIG = [
         iconBg: null,
         iconColor: null,
         isNetCard: true,
+    },
+    {
+        id: 'avg-temperature',
+        key: 'avgTemperature',
+        label: 'Rata-rata Suhu',
+        icon: Thermometer,
+        accentClass: 'bg-cyan-500',
+        iconBg: 'bg-cyan-50',
+        iconColor: 'text-cyan-600',
+        isNetCard: false,
     },
 ];
 
@@ -181,19 +192,22 @@ function KPICard({ id, label, icon: Icon, iconBg, iconColor, accentClass, item, 
 /* ─────────────────────────────────────────
    KPI Cards Section
    Presentational only — data datang dari prop `data`.
-   Parent yang bertanggung jawab fetch ke API/database,
-   contoh:
+   Parent yang bertanggung jawab fetch ke API/database
+   berdasarkan filter (termasuk filter dari FilterBar.jsx:
+   dateFrom, dateTo, product, cluster), contoh:
 
      const [data, setData] = useState({});
      useEffect(() => {
-       fetch('/api/kpi?...').then(r => r.json()).then(setData);
+       fetch(`/api/kpi?${new URLSearchParams(filters)}`)
+         .then(r => r.json())
+         .then(setData);
      }, [filters]);
      ...
      <KPICards data={data} />
 ───────────────────────────────────────── */
 export default function KPICards({ data = {} }) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {CARD_CONFIG.map((cfg) => {
                 const item = data[cfg.key];
                 const net = item?.value >= 0;

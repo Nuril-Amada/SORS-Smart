@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FilterBar, { getDefaultDates } from '../components/overview/FilterBar';
 import KPICards from '../components/overview/KPICards';
 import DailyTrendChart from '../components/overview/DailyTrendChart';
+import GainLossTrendChart from '../components/overview/GainLossTrendChart';
 import StockDistributionChart from '../components/overview/StockDistributionChart';
 import TransactionByUnitChart from '../components/overview/TransactionByUnitChart';
 import OilTransactionDetail from '../components/overview/OilTransactionDetail';
@@ -41,9 +42,100 @@ function buildEmptyFilters() {
 export default function Overview({ onNavigate }) {
     const [filters, setFilters] = useState(buildInitialFilters);
 
+    // Data untuk DailyTrendChart & GainLossTrendChart — keduanya komponen
+    // presentational (lihat komentar di masing-masing file), jadi Overview
+    // yang bertanggung jawab fetch datanya berdasarkan `filters`.
+    const [dailyTrendData, setDailyTrendData] = useState([]);
+    const [gainLossData, setGainLossData] = useState([]);
+
+    // Data untuk KPICards (termasuk card baru "Rata-rata Suhu") — juga
+    // presentational, jadi Overview yang fetch berdasarkan `filters`.
+    const [kpiData, setKpiData] = useState({});
+
     const handleResetFilters = () => {
         setFilters(buildEmptyFilters());
     };
+
+    // ── Fetch data Tren Transaksi Harian setiap kali filter berubah ──
+    useEffect(() => {
+        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
+        //
+        // const params = new URLSearchParams({
+        //     dateFrom: filters.dateFrom,
+        //     dateTo: filters.dateTo,
+        //     product: filters.product,
+        //     cluster: filters.cluster,
+        // });
+        // fetch(`/api/transaksi-harian?${params}`)
+        //     .then(r => r.json())
+        //     .then(setDailyTrendData)
+        //     .catch(err => {
+        //         console.error('Gagal memuat tren transaksi harian:', err);
+        //         setDailyTrendData([]);
+        //     });
+        //
+        // Untuk sekarang dikosongkan supaya chart menampilkan EmptyState,
+        // bukan data dummy/palsu.
+        setDailyTrendData([]);
+    }, [filters]);
+
+    // ── Fetch data Tren Gain/Loss Harian setiap kali filter berubah ──
+    useEffect(() => {
+        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
+        //
+        // const params = new URLSearchParams({
+        //     dateFrom: filters.dateFrom,
+        //     dateTo: filters.dateTo,
+        //     product: filters.product,
+        //     cluster: filters.cluster,
+        // });
+        // fetch(`/api/gain-loss-harian?${params}`)
+        //     .then(r => r.json())
+        //     .then(setGainLossData)
+        //     .catch(err => {
+        //         console.error('Gagal memuat tren gain/loss harian:', err);
+        //         setGainLossData([]);
+        //     });
+        //
+        // Untuk sekarang dikosongkan supaya chart menampilkan EmptyState,
+        // bukan data dummy/palsu.
+        setGainLossData([]);
+    }, [filters]);
+
+    // ── Fetch data KPI Cards setiap kali filter berubah ──
+    // (mencakup: beginningStock, totalIn, totalOut, endingStock,
+    // netGainLoss, dan avgTemperature — dipakai FilterBar untuk memfilter
+    // per periode tanggal / produk / cluster)
+    useEffect(() => {
+        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
+        //
+        // const params = new URLSearchParams({
+        //     dateFrom: filters.dateFrom,
+        //     dateTo: filters.dateTo,
+        //     product: filters.product,
+        //     cluster: filters.cluster,
+        // });
+        // fetch(`/api/kpi?${params}`)
+        //     .then(r => r.json())
+        //     .then(setKpiData);
+        //     // response yang diharapkan, contoh:
+        //     // {
+        //     //   beginningStock: { value: 45000, prevValue: 43000, unit: 'KG' },
+        //     //   totalIn:        { value: 12500, prevValue: 11000, unit: 'KG' },
+        //     //   totalOut:       { value: 9800,  prevValue: 10200, unit: 'KG' },
+        //     //   endingStock:    { value: 47700, prevValue: 43800, unit: 'KG' },
+        //     //   netGainLoss:    { value: 120.5, prevValue: -30,   unit: 'KG' },
+        //     //   avgTemperature: { value: 62.4,  prevValue: 61.8,  unit: '°C' },
+        //     // }
+        //     .catch(err => {
+        //         console.error('Gagal memuat data KPI:', err);
+        //         setKpiData({});
+        //     });
+        //
+        // Untuk sekarang dikosongkan supaya card menampilkan "-",
+        // bukan data dummy/palsu.
+        setKpiData({});
+    }, [filters]);
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-slate-50 pt-16">
@@ -57,7 +149,7 @@ export default function Overview({ onNavigate }) {
                 />
 
                 {/* ── Section 3: KPI Cards ───────────────── */}
-                <KPICards filters={filters} />
+                <KPICards data={kpiData} />
 
                 {/* ══════════════════════════════════════════
                     Section 4: Visualisasi / Charts
@@ -65,8 +157,11 @@ export default function Overview({ onNavigate }) {
                 <div>
 
                     <div className="space-y-5">
-                        {/* A — Tren Transaksi Harian (full width) */}
-                        <DailyTrendChart filters={filters} />
+                        {/* A — Tren Transaksi Harian + Tren Gain/Loss Harian (bersampingan) */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                            <DailyTrendChart data={dailyTrendData} />
+                            <GainLossTrendChart data={gainLossData} />
+                        </div>
 
                         {/* B + C — Side by side (responsive) */}
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
