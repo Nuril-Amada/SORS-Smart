@@ -57,7 +57,13 @@ function OverviewRoute({ user, onLogout }) {
   const navigate = useNavigate();
   return (
     <ProtectedLayout user={user} onLogout={onLogout}>
-      <Overview onNavigate={(path) => navigate(path)} />
+      {/*
+        onNavigate menerima 2 argumen: path, dan filter tabel yang sedang
+        aktif di widget OilTransactionDetail (lihat handleViewAllTransactions
+        di Overview.jsx). Filter dioper lewat `state` react-router, dan
+        dibaca kembali di pages/OilTransactions.jsx via useLocation().state.
+      */}
+      <Overview onNavigate={(path, filters) => navigate(path, { state: filters })} />
     </ProtectedLayout>
   );
 }

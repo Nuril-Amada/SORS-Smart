@@ -5,7 +5,7 @@ import DailyTrendChart from '../components/overview/DailyTrendChart';
 import GainLossTrendChart from '../components/overview/GainLossTrendChart';
 import StockDistributionChart from '../components/overview/StockDistributionChart';
 import TransactionByUnitChart from '../components/overview/TransactionByUnitChart';
-import OilTransactionDetail from '../components/overview/OilTransactionDetail';
+import { OilTransactionDetail } from '../components/overview/OilTransactions'; // named export, bukan default
 import { ArrowRight, BarChart2 } from 'lucide-react';
 
 /* ─────────────────────────────────────────
@@ -51,6 +51,11 @@ export default function Overview({ onNavigate }) {
     // Data untuk KPICards (termasuk card baru "Rata-rata Suhu") — juga
     // presentational, jadi Overview yang fetch berdasarkan `filters`.
     const [kpiData, setKpiData] = useState({});
+
+    // Data untuk tabel Detail Transaksi Minyak (widget 5 teratas).
+    // Presentational juga — Overview yang fetch, widget tinggal tampilkan +
+    // filter/sort di sisi client. Kosong dulu sampai backend siap (lihat TODO di bawah).
+    const [oilTransactions, setOilTransactions] = useState([]);
 
     const handleResetFilters = () => {
         setFilters(buildEmptyFilters());
@@ -137,6 +142,42 @@ export default function Overview({ onNavigate }) {
         setKpiData({});
     }, [filters]);
 
+    // ── Fetch data tabel Detail Transaksi Minyak setiap kali filter global berubah ──
+    useEffect(() => {
+        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
+        //
+        // const params = new URLSearchParams({
+        //     dateFrom: filters.dateFrom,
+        //     dateTo: filters.dateTo,
+        //     product: filters.product,
+        // });
+        // fetch(`/api/transaksi?${params}`)
+        //     .then(r => r.json())
+        //     .then(setOilTransactions)
+        //     .catch(err => {
+        //         console.error('Gagal memuat data transaksi:', err);
+        //         setOilTransactions([]);
+        //     });
+        //
+        // Untuk sekarang dikosongkan supaya tabel menampilkan EmptyState,
+        // bukan data dummy/palsu.
+        setOilTransactions([]);
+    }, [filters]);
+
+    // FIX: filter tabel yang sedang aktif di widget (tankSearch, product,
+    // dateFrom, dateTo — lihat definisi di OilTransactionDetail) dioper ke
+    // route '/detail-transaksi' supaya tidak hilang saat user pindah halaman.
+    // Sesuaikan implementasi onNavigate di router kamu agar menerima argumen
+    // kedua ini dan meneruskannya sebagai prop `initialFilters` ke OilTransactionsPage.
+    const handleViewAllTransactions = (activeTableFilters) => {
+        if (onNavigate) {
+            onNavigate('/detail-transaksi', activeTableFilters);
+        } else {
+            window.history.pushState({ filters: activeTableFilters }, '', '/detail-transaksi');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+        }
+    };
+
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-slate-50 pt-16">
             <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
@@ -172,7 +213,8 @@ export default function Overview({ onNavigate }) {
                         {/* D — Detail Transaksi Minyak (Tabel Detail 5 Teratas & Lihat Selengkapnya) */}
                         <OilTransactionDetail
                             filters={filters}
-                            onViewAll={() => onNavigate ? onNavigate('/detail-transaksi') : (window.history.pushState({}, '', '/detail-transaksi'), window.dispatchEvent(new PopStateEvent('popstate')))}
+                            transactions={oilTransactions}
+                            onViewAll={handleViewAllTransactions}
                         />
                     </div>
                 </div>
