@@ -21,6 +21,14 @@ export function getDefaultDates() {
     return { dateFrom: fmt(firstDay), dateTo: fmt(today) };
 }
 
+export const PRODUCT_OPTIONS = [
+    'CPO', 'RBDHPO', 'PFAD', 'RBD CNO', 'RBDPO', 'RBD Olein', 'Soap Stock',
+    'RBDST', 'MIXED OIL', 'PAO', 'RBD INFAT', 'NPO', 'RBDFHPKO', 'CDPO',
+].map((p) => ({ value: p, label: p }));
+
+export const CLUSTER_OPTIONS = ['C', 'I', 'P', 'F', 'B']
+    .map((c) => ({ value: c, label: `Cluster ${c}` }));
+
 /* ─────────────────────────────────────────────────────────────
    FilterBar Component (digabung dengan DataToolbar)
 
@@ -48,8 +56,8 @@ export default function FilterBar({
     onExportPDF,
     onImportFile,
     onDeleteData,
-    productOptions = [],
-    clusterOptions = []
+    productOptions = PRODUCT_OPTIONS,
+    clusterOptions = CLUSTER_OPTIONS
 }) {
     const { dateFrom, dateTo, product, cluster } = filters;
     const fileInputRef = useRef(null);
