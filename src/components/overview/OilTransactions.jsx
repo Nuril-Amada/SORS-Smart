@@ -34,7 +34,7 @@ import {
      {
        id: string,       // contoh: 'TRX-2026-001'
        date: string,      // ISO atau 'YYYY-MM-DD HH:mm'
-       tank: string,      // kode tangki, contoh: 'TC1'
+       tank: string,      // kode tangki, contoh: 'TC1' (huruf cluster = C, lihat getTankCluster)
        product: string,   // salah satu dari PRODUCT_LIST (selain 'Semua Produk')
        inFlow: number,    // kg, 0 jika tidak ada aliran masuk
        outFlow: number,   // kg, 0 jika tidak ada aliran keluar
@@ -44,6 +44,16 @@ import {
 ═════════════════════════════════════════════════════════════════════════════ */
 
 const PRODUCT_LIST = ['Semua Produk', 'CPO', 'RBD Olein', 'RBD Stearin', 'PFAD', 'PKO', 'RBDPO'];
+
+// Cluster tangki. Cluster diambil dari huruf kode tangki: 'TC1' -> C, 'TP4' -> P.
+const CLUSTER_LIST = ['Semua Cluster', 'C', 'I', 'P', 'F', 'B'];
+
+// Ambil huruf cluster dari kode tangki (huruf awal 'T' dilewati kalau ada).
+// Kalau format kode tangki di database berbeda, cukup ubah fungsi ini.
+const getTankCluster = (tank) => {
+    const match = String(tank ?? '').trim().toUpperCase().match(/^T?([A-Z])/);
+    return match ? match[1] : '';
+};
 
 const PRODUCT_BADGE_STYLES = {
     'CPO': 'bg-amber-50 text-amber-700 border-amber-200',
@@ -61,15 +71,24 @@ const ALL_TRANSACTIONS = [];
 const DEFAULT_FILTERS = {
     tankSearch: '',
     product: 'Semua Produk',
+    cluster: 'Semua Cluster',
     dateFrom: '',
     dateTo: '',
 };
+
+// Urutan tetap untuk widget Overview: transaksi paling baru di atas.
+// Didefinisikan di luar komponen supaya referensinya stabil.
+const SORT_LATEST = { column: 'date', order: 'desc' };
+
+// Normalisasi tanggal 'YYYY-MM-DD HH:mm' (pakai spasi) menjadi format yang
+// terbaca konsisten di semua browser (termasuk Safari lama).
+const toTime = (s) => new Date(String(s).replace(' ', 'T')).getTime();
 
 /**
  * Filter + sort satu fungsi bersama. Pencarian tangki (tankSearch) HANYA
  * mencocokkan ke kode tangki (item.tank) — tidak ke produk atau ID transaksi.
  */
-function filterAndSortTransactions(data, { tankSearch, product, dateFrom, dateTo }, sortConfig) {
+function filterAndSortTransactions(data, { tankSearch, product, cluster, dateFrom, dateTo }, sortConfig) {
     let result = [...data];
 
     if (tankSearch?.trim()) {
@@ -78,6 +97,9 @@ function filterAndSortTransactions(data, { tankSearch, product, dateFrom, dateTo
     }
     if (product && product !== 'Semua Produk') {
         result = result.filter((item) => item.product === product);
+    }
+    if (cluster && cluster !== 'Semua Cluster') {
+        result = result.filter((item) => getTankCluster(item.tank) === cluster);
     }
     if (dateFrom) {
         result = result.filter((item) => item.date.slice(0, 10) >= dateFrom);
@@ -89,8 +111,8 @@ function filterAndSortTransactions(data, { tankSearch, product, dateFrom, dateTo
     result.sort((a, b) => {
         let valA, valB;
         if (sortConfig.column === 'date') {
-            valA = new Date(a.date).getTime();
-            valB = new Date(b.date).getTime();
+            valA = toTime(a.date);
+            valB = toTime(b.date);
         } else if (sortConfig.column === 'inFlow') {
             valA = a.inFlow; valB = b.inFlow;
         } else if (sortConfig.column === 'outFlow') {
@@ -120,8 +142,9 @@ function SortIcon({ active, order }) {
 }
 
 /* ═════════════════════════════════════════════════════════════════════════════
-   BAGIAN 2 — WIDGET RINGKAS (untuk Overview, tampil 5 teratas)
+   BAGIAN 2 — WIDGET RINGKAS (untuk Overview, tampil 5 transaksi terbaru)
    Kolom: Tanggal, Tangki, Produk, IN Flow, OUT Flow, Suhu (°C), Delta °C
+   Sorting dikunci ke tanggal terbaru; sorting lengkap ada di halaman penuh.
 ═════════════════════════════════════════════════════════════════════════════ */
 
 export function OilTransactionDetail({ filters, onViewAll, transactions }) {
@@ -129,44 +152,40 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
 
     const [tankSearch, setTankSearch] = useState(DEFAULT_FILTERS.tankSearch);
     const [selectedProduct, setSelectedProduct] = useState(DEFAULT_FILTERS.product);
+    const [selectedCluster, setSelectedCluster] = useState(DEFAULT_FILTERS.cluster);
     const [dateFrom, setDateFrom] = useState(DEFAULT_FILTERS.dateFrom);
     const [dateTo, setDateTo] = useState(DEFAULT_FILTERS.dateTo);
-    const [sortConfig, setSortConfig] = useState({ column: 'date', order: 'desc' });
 
     // Sinkron filter dari parent (FilterBar global). `!== undefined` dipakai
     // (bukan truthy check) supaya nilai '' dari tombol Reset tetap ikut ke-reset di sini.
     useEffect(() => {
         if (!filters) return;
         if (filters.product !== undefined) setSelectedProduct(filters.product || DEFAULT_FILTERS.product);
+        if (filters.cluster !== undefined) setSelectedCluster(filters.cluster || DEFAULT_FILTERS.cluster);
         if (filters.dateFrom !== undefined) setDateFrom(filters.dateFrom || '');
         if (filters.dateTo !== undefined) setDateTo(filters.dateTo || '');
     }, [filters]);
 
-    const handleSort = (column) => {
-        setSortConfig((prev) =>
-            prev.column === column ? { column, order: prev.order === 'asc' ? 'desc' : 'asc' } : { column, order: 'desc' }
-        );
-    };
-
     const handleResetFilters = () => {
         setTankSearch(DEFAULT_FILTERS.tankSearch);
         setSelectedProduct(DEFAULT_FILTERS.product);
+        setSelectedCluster(DEFAULT_FILTERS.cluster);
         setDateFrom(DEFAULT_FILTERS.dateFrom);
         setDateTo(DEFAULT_FILTERS.dateTo);
-        setSortConfig({ column: 'date', order: 'desc' });
     };
 
     const filteredAndSortedData = useMemo(
-        () => filterAndSortTransactions(sourceData, { tankSearch, product: selectedProduct, dateFrom, dateTo }, sortConfig),
-        [sourceData, tankSearch, selectedProduct, dateFrom, dateTo, sortConfig]
+        () => filterAndSortTransactions(sourceData, { tankSearch, product: selectedProduct, cluster: selectedCluster, dateFrom, dateTo }, SORT_LATEST),
+        [sourceData, tankSearch, selectedProduct, selectedCluster, dateFrom, dateTo]
     );
 
     const totalItems = filteredAndSortedData.length;
     const displayedData = useMemo(() => filteredAndSortedData.slice(0, 5), [filteredAndSortedData]);
+    const shownCount = displayedData.length;
 
     // Filter yang aktif dioper ke halaman penuh saat "Lihat Selengkapnya" diklik.
     const handleViewAllClick = () => {
-        const currentFilters = { tankSearch, product: selectedProduct, dateFrom, dateTo };
+        const currentFilters = { tankSearch, product: selectedProduct, cluster: selectedCluster, dateFrom, dateTo };
         if (onViewAll) onViewAll(currentFilters);
     };
 
@@ -180,7 +199,7 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="font-bold text-slate-800 text-sm md:text-base">Detail Transaksi Minyak</h3>
-                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">5 Teratas</span>
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">5 Terbaru</span>
                         </div>
                         <p className="text-[11px] text-slate-500 mt-0.5">Rincian transaksi aliran minyak masuk, keluar, tangki, dan perubahan suhu (Δ °C)</p>
                     </div>
@@ -218,13 +237,19 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
                                 {PRODUCT_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+                            <span className="text-[11px] text-slate-400 font-semibold">Cluster:</span>
+                            <select value={selectedCluster} onChange={(e) => setSelectedCluster(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
+                                {CLUSTER_LIST.map((c) => <option key={c} value={c}>{c === 'Semua Cluster' ? c : `Cluster ${c}`}</option>)}
+                            </select>
+                        </div>
                         <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
                             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer text-[11px]" title="Dari Tanggal" />
                             <span className="text-slate-400">-</span>
                             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer text-[11px]" title="Sampai Tanggal" />
                         </div>
-                        {(tankSearch || selectedProduct !== DEFAULT_FILTERS.product || dateFrom || dateTo) && (
+                        {(tankSearch || selectedProduct !== DEFAULT_FILTERS.product || selectedCluster !== DEFAULT_FILTERS.cluster || dateFrom || dateTo) && (
                             <button onClick={handleResetFilters} className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold text-[11px] transition-colors cursor-pointer">
                                 <RotateCcw className="w-3 h-3" /><span>Reset</span>
                             </button>
@@ -251,21 +276,13 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
-                                <th onClick={() => handleSort('date')} className="py-3 px-4 cursor-pointer hover:bg-slate-100/70 transition-colors group select-none">
-                                    <div className="flex items-center gap-1.5"><span>Tanggal</span><SortIcon active={sortConfig.column === 'date'} order={sortConfig.order} /></div>
-                                </th>
+                                <th className="py-3 px-4">Tanggal</th>
                                 <th className="py-3 px-4">Tangki</th>
                                 <th className="py-3 px-4">Produk</th>
-                                <th onClick={() => handleSort('inFlow')} className="py-3 px-4 text-right cursor-pointer hover:bg-slate-100/70 transition-colors group select-none">
-                                    <div className="flex items-center justify-end gap-1.5"><span>IN Flow</span><SortIcon active={sortConfig.column === 'inFlow'} order={sortConfig.order} /></div>
-                                </th>
-                                <th onClick={() => handleSort('outFlow')} className="py-3 px-4 text-right cursor-pointer hover:bg-slate-100/70 transition-colors group select-none">
-                                    <div className="flex items-center justify-end gap-1.5"><span>OUT Flow</span><SortIcon active={sortConfig.column === 'outFlow'} order={sortConfig.order} /></div>
-                                </th>
+                                <th className="py-3 px-4 text-right">IN Flow</th>
+                                <th className="py-3 px-4 text-right">OUT Flow</th>
                                 <th className="py-3 px-4 text-right">Suhu (°C)</th>
-                                <th onClick={() => handleSort('deltaTemp')} className="py-3 px-4 text-center cursor-pointer hover:bg-slate-100/70 transition-colors group select-none">
-                                    <div className="flex items-center justify-center gap-1.5"><span>Δ °C</span><SortIcon active={sortConfig.column === 'deltaTemp'} order={sortConfig.order} /></div>
-                                </th>
+                                <th className="py-3 px-4 text-center">Δ °C</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -306,7 +323,7 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
             <div className="px-5 py-3.5 border-t border-slate-100 bg-white flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                     <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                    <span>Menampilkan 5 transaksi teratas dari total {totalItems} data</span>
+                    <span>Menampilkan {shownCount} transaksi terbaru dari total {totalItems} data</span>
                 </div>
             </div>
         </div>
@@ -322,6 +339,7 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
 
     const [tankSearch, setTankSearch] = useState(initialFilters?.tankSearch ?? DEFAULT_FILTERS.tankSearch);
     const [selectedProduct, setSelectedProduct] = useState(initialFilters?.product ?? DEFAULT_FILTERS.product);
+    const [selectedCluster, setSelectedCluster] = useState(initialFilters?.cluster ?? DEFAULT_FILTERS.cluster);
     const [dateFrom, setDateFrom] = useState(initialFilters?.dateFrom ?? DEFAULT_FILTERS.dateFrom);
     const [dateTo, setDateTo] = useState(initialFilters?.dateTo ?? DEFAULT_FILTERS.dateTo);
     const [sortConfig, setSortConfig] = useState({ column: 'date', order: 'desc' });
@@ -338,6 +356,7 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
     const handleResetFilters = () => {
         setTankSearch(DEFAULT_FILTERS.tankSearch);
         setSelectedProduct(DEFAULT_FILTERS.product);
+        setSelectedCluster(DEFAULT_FILTERS.cluster);
         setDateFrom(DEFAULT_FILTERS.dateFrom);
         setDateTo(DEFAULT_FILTERS.dateTo);
         setSortConfig({ column: 'date', order: 'desc' });
@@ -345,8 +364,8 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
     };
 
     const filteredAndSortedData = useMemo(
-        () => filterAndSortTransactions(sourceData, { tankSearch, product: selectedProduct, dateFrom, dateTo }, sortConfig),
-        [sourceData, tankSearch, selectedProduct, dateFrom, dateTo, sortConfig]
+        () => filterAndSortTransactions(sourceData, { tankSearch, product: selectedProduct, cluster: selectedCluster, dateFrom, dateTo }, sortConfig),
+        [sourceData, tankSearch, selectedProduct, selectedCluster, dateFrom, dateTo, sortConfig]
     );
 
     const stats = useMemo(() => {
@@ -362,7 +381,7 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
         return filteredAndSortedData.slice(start, start + itemsPerPage);
     }, [filteredAndSortedData, currentPage, itemsPerPage]);
 
-    const hasActiveFilter = tankSearch || selectedProduct !== DEFAULT_FILTERS.product || dateFrom || dateTo;
+    const hasActiveFilter = tankSearch || selectedProduct !== DEFAULT_FILTERS.product || selectedCluster !== DEFAULT_FILTERS.cluster || dateFrom || dateTo;
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-slate-50 pt-16">
@@ -423,7 +442,7 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
                                     className="w-full pl-9 pr-8 py-2 text-xs bg-white rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all text-slate-800 placeholder-slate-400 font-medium"
                                 />
                                 {tankSearch && (
-                                    <button onClick={() => setTankSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => { setTankSearch(''); setCurrentPage(1); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
                                 )}
                             </div>
                             <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -431,6 +450,12 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
                                     <span className="text-[11px] text-slate-400 font-semibold">Produk:</span>
                                     <select value={selectedProduct} onChange={(e) => { setSelectedProduct(e.target.value); setCurrentPage(1); }} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
                                         {PRODUCT_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-slate-200">
+                                    <span className="text-[11px] text-slate-400 font-semibold">Cluster:</span>
+                                    <select value={selectedCluster} onChange={(e) => { setSelectedCluster(e.target.value); setCurrentPage(1); }} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
+                                        {CLUSTER_LIST.map((c) => <option key={c} value={c}>{c === 'Semua Cluster' ? c : `Cluster ${c}`}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-1 bg-white px-3 py-2 rounded-xl border border-slate-200">
