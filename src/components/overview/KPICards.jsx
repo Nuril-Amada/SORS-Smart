@@ -181,7 +181,7 @@ function KPICard({ id, label, icon: Icon, iconBg, iconColor, accentClass, item, 
                                 : <ChevronDown className="w-3.5 h-3.5" />}
                             {Math.abs(change).toFixed(1)}%
                         </div>
-                        <span className="text-[10px] text-slate-400 font-medium">vs periode lalu</span>
+                        <span className="text-[10px] text-slate-400 font-medium">dari periode lalu</span>
                     </div>
                 )}
             </div>

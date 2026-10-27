@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -198,8 +198,8 @@ export default function StockDistributionChart({ data = [], filters, onGroupChan
                     <div className="flex flex-col md:flex-row gap-6 items-start">
                         {/* Donut */}
                         <div className="w-full md:w-[220px] shrink-0 flex justify-center">
-                            <ResponsiveContainer width={220} height={220}>
-                                <PieChart>
+                            <div style={{ width: 220, height: 220, minWidth: 220 }}>
+                                <PieChart width={220} height={220}>
                                     <Pie
                                         data={chartData}
                                         cx="50%"
@@ -216,7 +216,7 @@ export default function StockDistributionChart({ data = [], filters, onGroupChan
                                     </Pie>
                                     <Tooltip content={(props) => <CustomTooltip {...props} total={total} />} />
                                 </PieChart>
-                            </ResponsiveContainer>
+                            </div>
                         </div>
 
                         {/* Legend table */}

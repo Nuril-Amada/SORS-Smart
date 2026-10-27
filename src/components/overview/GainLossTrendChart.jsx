@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
     Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell
@@ -191,6 +191,10 @@ export default function GainLossTrendChart({ data = [] }) {
     const netGainLoss = totalGain + totalLoss;
     const lastCumulative = chartData.length ? chartData[chartData.length - 1].CumulativeGainLoss : null;
 
+    const maxGainLoss = Math.max(...chartData.map(d => d.GainLoss ?? 0), 0);
+    const minGainLoss = Math.min(...chartData.map(d => d.GainLoss ?? 0), 0);
+    const gradientOffset = maxGainLoss <= 0 ? 0 : minGainLoss >= 0 ? 1 : maxGainLoss / (maxGainLoss - minGainLoss);
+
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             {/* ── Header ── */}
@@ -265,81 +269,103 @@ export default function GainLossTrendChart({ data = [] }) {
                 {data.length === 0 ? (
                     <EmptyState />
                 ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                        <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                            <XAxis
-                                dataKey="dateLabel"
-                                tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
-                                axisLine={false}
-                                tickLine={false}
-                                interval="preserveStartEnd"
-                            />
-                            {/* Sumbu kiri: GainLoss harian (bisa positif/negatif) */}
-                            <YAxis
-                                yAxisId="left"
-                                tick={{ fontSize: 10, fill: '#94a3b8' }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={v => `${v}`}
-                                width={40}
-                            />
-                            {/* Sumbu kanan: Akumulasi Gain/Loss */}
-                            <YAxis
-                                yAxisId="right"
-                                orientation="right"
-                                tick={{ fontSize: 10, fill: '#d97706' }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={v => `${v}`}
-                                width={44}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fffbeb' }} />
-                            <Legend
-                                wrapperStyle={{ fontSize: 11, paddingTop: 16 }}
-                                formatter={(value) => (
-                                    <span className="text-slate-600 font-semibold">
-                                        {value === 'CumulativeGainLoss' ? 'Akumulasi' : value === 'GainLoss' ? 'Gain/Loss Harian' : value}
-                                    </span>
-                                )}
-                            />
-                            <ReferenceLine yAxisId="left" y={0} stroke="#cbd5e1" />
-
-                            {/* Bar mode: GainLoss harian, warna per-bar (hijau=gain, merah=loss) */}
-                            {chartType === 'bar' && (
-                                <Bar yAxisId="left" dataKey="GainLoss" radius={[4, 4, 4, 4]} maxBarSize={28}>
-                                    {chartData.map((entry, idx) => (
-                                        <Cell
-                                            key={`cell-${idx}`}
-                                            fill={(entry.GainLoss ?? 0) >= 0 ? GAIN_COLOR : LOSS_COLOR}
-                                        />
-                                    ))}
-                                </Bar>
-                            )}
-
-                            {/* Line mode: GainLoss harian sebagai garis tunggal */}
-                            {chartType === 'line' && (
-                                <Line
-                                    yAxisId="left"
-                                    dataKey="GainLoss"
-                                    stroke="#0ea5e9"
-                                    strokeWidth={2.5}
-                                    dot={{ r: 4, fill: '#0ea5e9' }}
-                                    activeDot={{ r: 6 }}
+                    <div className="w-full h-[280px] min-w-0">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                            <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="splitColorGainLoss" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset={gradientOffset} stopColor={GAIN_COLOR} stopOpacity={1} />
+                                        <stop offset={gradientOffset} stopColor={LOSS_COLOR} stopOpacity={1} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                <XAxis
+                                    dataKey="dateLabel"
+                                    tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    interval="preserveStartEnd"
                                 />
-                            )}
+                                {/* Sumbu kiri: GainLoss harian (bisa positif/negatif) */}
+                                <YAxis
+                                    yAxisId="left"
+                                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickFormatter={v => `${v}`}
+                                    width={40}
+                                />
+                                {/* Sumbu kanan: Akumulasi Gain/Loss */}
+                                <YAxis
+                                    yAxisId="right"
+                                    orientation="right"
+                                    tick={{ fontSize: 10, fill: '#d97706' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickFormatter={v => `${v}`}
+                                    width={44}
+                                />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fffbeb' }} />
+                                <Legend
+                                    wrapperStyle={{ fontSize: 11, paddingTop: 16 }}
+                                    formatter={(value) => (
+                                        <span className="text-slate-600 font-semibold">
+                                            {value === 'CumulativeGainLoss' ? 'Akumulasi' : value === 'GainLoss' ? 'Gain/Loss Harian' : value}
+                                        </span>
+                                    )}
+                                />
+                                <ReferenceLine yAxisId="left" y={0} stroke="#cbd5e1" />
 
-                            {/* Akumulasi selalu tampil sebagai garis di sumbu kanan */}
-                            <Line
-                                yAxisId="right"
-                                dataKey="CumulativeGainLoss"
-                                stroke={CUMULATIVE_COLOR}
-                                strokeWidth={2.5}
-                                dot={{ r: 3, fill: CUMULATIVE_COLOR }}
-                                activeDot={{ r: 6 }}
-                            />
-                        </ComposedChart>
-                    </ResponsiveContainer>
+                                {/* Bar mode: GainLoss harian, warna per-bar (hijau=gain, merah=loss) */}
+                                {chartType === 'bar' && (
+                                    <Bar yAxisId="left" dataKey="GainLoss" radius={[4, 4, 4, 4]} maxBarSize={28}>
+                                        {chartData.map((entry, idx) => (
+                                            <Cell
+                                                key={`cell-${idx}`}
+                                                fill={(entry.GainLoss ?? 0) >= 0 ? GAIN_COLOR : LOSS_COLOR}
+                                            />
+                                        ))}
+                                    </Bar>
+                                )}
+
+                                {/* Line mode: Garis berwarna Hijau jika > 0 (Gain) dan Merah jika < 0 (Loss) */}
+                                {chartType === 'line' && (
+                                    <Line
+                                        yAxisId="left"
+                                        dataKey="GainLoss"
+                                        stroke="url(#splitColorGainLoss)"
+                                        strokeWidth={2.5}
+                                        dot={false}
+                                        activeDot={(props) => {
+                                            const { cx, cy, payload } = props;
+                                            if (!cx || !cy) return null;
+                                            const isGain = (payload.GainLoss ?? 0) >= 0;
+                                            return (
+                                                <circle
+                                                    cx={cx}
+                                                    cy={cy}
+                                                    r={6}
+                                                    fill={isGain ? GAIN_COLOR : LOSS_COLOR}
+                                                    stroke="#ffffff"
+                                                    strokeWidth={2}
+                                                />
+                                            );
+                                        }}
+                                    />
+                                )}
+
+                                {/* Akumulasi selalu tampil sebagai garis di sumbu kanan */}
+                                <Line
+                                    yAxisId="right"
+                                    dataKey="CumulativeGainLoss"
+                                    stroke={CUMULATIVE_COLOR}
+                                    strokeWidth={2.5}
+                                    dot={{ r: 3, fill: CUMULATIVE_COLOR }}
+                                    activeDot={{ r: 6, strokeWidth: 2, stroke: '#ffffff' }}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
 

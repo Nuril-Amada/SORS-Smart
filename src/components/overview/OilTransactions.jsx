@@ -65,29 +65,35 @@ import {
 // Daftar produk (nilai harus sama persis dengan kolom `product`, termasuk huruf & spasi).
 const PRODUCT_LIST = [
     'Semua Produk',
+    'CDPO',
     'CPO',
-    'RBDHPO',
+    'MIXED OIL',
+    'NPO',
+    'PAO',
     'PFAD',
     'RBD CNO',
-    'RBDPO',
-    'RBD Olein',
-    'Soap Stock',
-    'RBDST',
-    'MIXED OIL',
-    'PAO',
     'RBD INFAT',
-    'NPO',
+    'RBD Olein',
     'RBDFHPKO',
-    'CDPO',
+    'RBDHPO',
+    'RBDPO',
+    'RBDST',
+    'Soap Stock',
 ];
 
 // Cluster tangki. Cluster diambil dari huruf kode tangki: 'TC1' -> C, 'TP4' -> P, 'C-RM' -> C.
 const CLUSTER_LIST = ['Semua Cluster', 'C', 'I', 'P', 'F', 'B'];
 
 // Kalau format kode tangki di database berbeda, cukup ubah fungsi ini.
+// C-RM  -> Cluster C  |  TTF/TF* -> Cluster F  |  TC*/TB*/TI*/TP* -> Cluster sesuai huruf ke-2
 const getTankCluster = (tank) => {
-    const match = String(tank ?? '').trim().toUpperCase().match(/^T?([A-Z])/);
-    return match ? match[1] : '';
+    const t = String(tank ?? '').trim().toUpperCase();
+    if (!t) return '';
+    if (t.startsWith('C-')) return 'C';           // C-RM, C-xx
+    if (t.startsWith('TTF')) return 'F';           // TTF
+    if (t.startsWith('TF')) return 'F';            // TF2, TF3, dll
+    const match = t.match(/^T([A-Z])/);
+    return match ? match[1] : t.charAt(0);
 };
 
 // Grup aliran (asal/tujuan) sesuai header Excel. `key` = kunci di row.flows.
@@ -151,6 +157,25 @@ const formatDate = (s) =>
 const formatNumber = (val) =>
     (Number(val) || 0).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+const getPaginationRange = (currentPage, totalPages) => {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages = [];
+    const delta = 1;
+    const left = currentPage - delta;
+    const right = currentPage + delta;
+
+    pages.push(1);
+    if (left > 2) pages.push('...');
+    for (let i = Math.max(2, left); i <= Math.min(totalPages - 1, right); i++) {
+        pages.push(i);
+    }
+    if (right < totalPages - 1) pages.push('...');
+    pages.push(totalPages);
+    return pages;
+};
+
 /* ── Helper aliran ─ OUT di Excel bernilai negatif, jadi selalu diambil nilai absolutnya ── */
 const absNum = (v) => Math.abs(Number(v) || 0);
 const groupIn = (row, key) => absNum(row.flows?.[key]?.in);
@@ -202,10 +227,18 @@ function filterAndSortTransactions(data, { tankSearch, product, cluster, group =
         result = result.filter(hasMovement);
     }
     if (dateFrom) {
-        result = result.filter((item) => item.date.slice(0, 10) >= dateFrom);
+        const fromStr = String(dateFrom).slice(0, 10);
+        result = result.filter((item) => {
+            const d = String(item.date || item.transaction_date || '').slice(0, 10);
+            return !d || d >= fromStr;
+        });
     }
     if (dateTo) {
-        result = result.filter((item) => item.date.slice(0, 10) <= dateTo);
+        const toStr = String(dateTo).slice(0, 10);
+        result = result.filter((item) => {
+            const d = String(item.date || item.transaction_date || '').slice(0, 10);
+            return !d || d <= toStr;
+        });
     }
 
     const getValue = (item) => {
@@ -416,40 +449,59 @@ function TransactionsTable({ rows, group, sortConfig, onSort, expandable = false
    grup ada di halaman penuh. Hanya tangki yang punya aliran IN/OUT yang dihitung.
 ═════════════════════════════════════════════════════════════════════════════ */
 
-export function OilTransactionDetail({ filters, onViewAll, transactions }) {
+export function OilTransactionDetail({ filters, onViewAll, onFiltersChange, transactions, productNames }) {
     const sourceData = transactions ?? ALL_TRANSACTIONS;
+    const activeProductList = useMemo(() => (productNames?.length > 0 ? ['Semua Produk', ...productNames] : PRODUCT_LIST), [productNames]);
 
     const [tankSearch, setTankSearch] = useState(DEFAULT_FILTERS.tankSearch);
-    const [selectedProduct, setSelectedProduct] = useState(DEFAULT_FILTERS.product);
-    const [selectedCluster, setSelectedCluster] = useState(DEFAULT_FILTERS.cluster);
     const [selectedGroup, setSelectedGroup] = useState(DEFAULT_FILTERS.group);
-    const [dateFrom, setDateFrom] = useState(DEFAULT_FILTERS.dateFrom);
-    const [dateTo, setDateTo] = useState(DEFAULT_FILTERS.dateTo);
 
-    // Sinkron filter dari parent (FilterBar global). `!== undefined` dipakai
-    // (bukan truthy check) supaya nilai '' dari tombol Reset tetap ikut ke-reset di sini.
-    useEffect(() => {
-        if (!filters) return;
-        if (filters.product !== undefined) setSelectedProduct(filters.product || DEFAULT_FILTERS.product);
-        if (filters.cluster !== undefined) setSelectedCluster(filters.cluster || DEFAULT_FILTERS.cluster);
-        if (filters.group !== undefined) setSelectedGroup(filters.group || DEFAULT_FILTERS.group);
-        if (filters.dateFrom !== undefined) setDateFrom(filters.dateFrom || '');
-        if (filters.dateTo !== undefined) setDateTo(filters.dateTo || '');
-    }, [filters]);
+    const selectedProduct = filters?.product || DEFAULT_FILTERS.product;
+    const selectedCluster = filters?.cluster || DEFAULT_FILTERS.cluster;
+    const dateFrom = filters?.dateFrom || '';
+    const dateTo = filters?.dateTo || '';
+
+    const handleProductChange = (val) => {
+        if (onFiltersChange) {
+            onFiltersChange((prev) => ({ ...prev, product: val === DEFAULT_FILTERS.product ? '' : val }));
+        }
+    };
+
+    const handleClusterChange = (val) => {
+        if (onFiltersChange) {
+            onFiltersChange((prev) => ({ ...prev, cluster: val === DEFAULT_FILTERS.cluster ? '' : val }));
+        }
+    };
+
+    const handleDateFromChange = (val) => {
+        if (onFiltersChange) {
+            onFiltersChange((prev) => ({ ...prev, dateFrom: val }));
+        }
+    };
+
+    const handleDateToChange = (val) => {
+        if (onFiltersChange) {
+            onFiltersChange((prev) => ({ ...prev, dateTo: val }));
+        }
+    };
 
     const handleResetFilters = () => {
         setTankSearch(DEFAULT_FILTERS.tankSearch);
-        setSelectedProduct(DEFAULT_FILTERS.product);
-        setSelectedCluster(DEFAULT_FILTERS.cluster);
         setSelectedGroup(DEFAULT_FILTERS.group);
-        setDateFrom(DEFAULT_FILTERS.dateFrom);
-        setDateTo(DEFAULT_FILTERS.dateTo);
+        if (onFiltersChange) {
+            onFiltersChange({
+                product: '',
+                cluster: '',
+                dateFrom: '',
+                dateTo: ''
+            });
+        }
     };
 
     const filteredAndSortedData = useMemo(
         () => filterAndSortTransactions(
             sourceData,
-            { tankSearch, product: selectedProduct, cluster: selectedCluster, group: selectedGroup, dateFrom, dateTo, onlyActive: true },
+            { tankSearch, product: selectedProduct, cluster: selectedCluster, group: selectedGroup, dateFrom, dateTo, onlyActive: false },
             SORT_LATEST
         ),
         [sourceData, tankSearch, selectedProduct, selectedCluster, selectedGroup, dateFrom, dateTo]
@@ -514,13 +566,13 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
                     <div className="flex items-center gap-2 flex-wrap text-xs">
                         <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
                             <span className="text-[11px] text-slate-400 font-semibold">Produk:</span>
-                            <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
-                                {PRODUCT_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
+                            <select value={selectedProduct} onChange={(e) => handleProductChange(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
+                                {activeProductList.map((p) => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
                         <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
                             <span className="text-[11px] text-slate-400 font-semibold">Cluster:</span>
-                            <select value={selectedCluster} onChange={(e) => setSelectedCluster(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
+                            <select value={selectedCluster} onChange={(e) => handleClusterChange(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
                                 {CLUSTER_LIST.map((c) => <option key={c} value={c}>{c === 'Semua Cluster' ? c : `Cluster ${c}`}</option>)}
                             </select>
                         </div>
@@ -533,9 +585,9 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
                         </div>
                         <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
                             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer text-[11px]" title="Dari Tanggal" />
+                            <input type="date" value={dateFrom} onChange={(e) => handleDateFromChange(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer text-[11px]" title="Dari Tanggal" />
                             <span className="text-slate-400">-</span>
-                            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer text-[11px]" title="Sampai Tanggal" />
+                            <input type="date" value={dateTo} onChange={(e) => handleDateToChange(e.target.value)} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer text-[11px]" title="Sampai Tanggal" />
                         </div>
                         {hasActiveFilter && (
                             <button onClick={handleResetFilters} className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold text-[11px] transition-colors cursor-pointer">
@@ -580,8 +632,9 @@ export function OilTransactionDetail({ filters, onViewAll, transactions }) {
    BAGIAN 3 — HALAMAN PENUH (pagination, ringkasan statistik, baris bisa dibuka)
 ═════════════════════════════════════════════════════════════════════════════ */
 
-export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
+export function OilTransactionsPage({ onBack, initialFilters, transactions, productNames }) {
     const sourceData = transactions ?? ALL_TRANSACTIONS;
+    const activeProductList = useMemo(() => (productNames?.length > 0 ? ['Semua Produk', ...productNames] : PRODUCT_LIST), [productNames]);
 
     const [tankSearch, setTankSearch] = useState(initialFilters?.tankSearch ?? DEFAULT_FILTERS.tankSearch);
     const [selectedProduct, setSelectedProduct] = useState(initialFilters?.product ?? DEFAULT_FILTERS.product);
@@ -666,7 +719,6 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
                                 <p className="text-slate-500 text-xs mt-0.5">Daftar lengkap transaksi aliran minyak masuk, keluar, tangki, dan perubahan suhu (Δ °C). Klik baris untuk melihat asal/tujuan aliran, stok, dan gain/loss.</p>
                             </div>
                         </div>
-                        <span className="self-start sm:self-auto px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800">{totalItems} Total Transaksi</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
                         <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
@@ -711,7 +763,7 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
                                 <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-slate-200">
                                     <span className="text-[11px] text-slate-400 font-semibold">Produk:</span>
                                     <select value={selectedProduct} onChange={(e) => { setSelectedProduct(e.target.value); setCurrentPage(1); }} className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer">
-                                        {PRODUCT_LIST.map((p) => <option key={p} value={p}>{p}</option>)}
+                                        {activeProductList.map((p) => <option key={p} value={p}>{p}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-1.5 bg-white px-3 py-2 rounded-xl border border-slate-200">
@@ -787,11 +839,19 @@ export function OilTransactionsPage({ onBack, initialFilters, transactions }) {
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <button onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-                                        <button key={pg} onClick={() => setCurrentPage(pg)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${currentPage === pg ? 'bg-amber-500 text-white shadow-xs' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{pg}</button>
+                                    <button onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer" title="Halaman Sebelumnya">
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                    </button>
+                                    {getPaginationRange(currentPage, totalPages).map((item, idx) => (
+                                        item === '...' ? (
+                                            <span key={`dots-${idx}`} className="px-1.5 text-slate-400 text-xs font-bold select-none">...</span>
+                                        ) : (
+                                            <button key={item} onClick={() => setCurrentPage(item)} className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${currentPage === item ? 'bg-amber-500 text-white shadow-xs' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{item}</button>
+                                        )
                                     ))}
-                                    <button onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"><ChevronRight className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer" title="Halaman Selanjutnya">
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
                             </div>
                         )}

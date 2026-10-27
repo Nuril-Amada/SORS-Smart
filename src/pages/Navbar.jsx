@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-    ChevronDown, Lock, LogOut,
-    Eye, EyeOff, X, Check, AlertCircle
+    ChevronDown, Lock, LogOut, Users,
+    Eye, EyeOff, X, Check, AlertCircle, LayoutDashboard
 } from 'lucide-react';
 import smartLogo from '../assets/LOGO.png';
+import { updateUserPassword } from '../services/api';
 
 /* ─────────────────────────────────────────
    Change Password Modal (internal)
 ───────────────────────────────────────── */
-function ChangePasswordModal({ username, onClose }) {
+function ChangePasswordModal({ userId, username, onClose }) {
     const [currentPass, setCurrentPass] = useState('');
     const [newPass, setNewPass] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
@@ -24,7 +26,7 @@ function ChangePasswordModal({ username, onClose }) {
         { label: 'Konfirmasi Password Baru', val: confirmPass, set: setConfirmPass, show: showConfirm, toggle: () => setShowConfirm(v => !v) },
     ];
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setStatus({ type: '', msg: '' });
         if (!currentPass || !newPass || !confirmPass) {
@@ -40,11 +42,17 @@ function ChangePasswordModal({ username, onClose }) {
             return;
         }
         setLoading(true);
-        setTimeout(() => {
+        try {
+            if (userId) {
+                await updateUserPassword(userId, newPass);
+            }
             setLoading(false);
             setStatus({ type: 'success', msg: 'Password berhasil diperbarui.' });
             setTimeout(onClose, 1200);
-        }, 900);
+        } catch (err) {
+            setLoading(false);
+            setStatus({ type: 'error', msg: err.message || 'Gagal mengubah password.' });
+        }
     };
 
     return (
@@ -142,9 +150,12 @@ function ChangePasswordModal({ username, onClose }) {
    Navbar (Warna Cream agak kuning disesuaikan)
 ───────────────────────────────────────── */
 export default function Navbar({ user, onLogout }) {
+    const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showChangePassword, setShowChangePassword] = useState(false);
     const dropdownRef = useRef(null);
+
+    const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -157,7 +168,7 @@ export default function Navbar({ user, onLogout }) {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const displayName = user?.fullName || user?.username || 'Budi Santoso';
+    const displayName = user?.fullName || user?.username || 'User SORS';
     const initials = displayName
         .split(' ')
         .map(n => n[0])
@@ -171,7 +182,7 @@ export default function Navbar({ user, onLogout }) {
                 <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
 
                     {/* ── Left: Logo + Title ── */}
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={() => navigate('/overview')}>
                         <div className="shrink-0 w-9 h-9 rounded-xl bg-white border border-amber-300/80 shadow-xs flex items-center justify-center">
                             <img src={smartLogo} alt="PT SMART Tbk." className="w-6 h-6 object-contain" />
                         </div>
@@ -185,8 +196,18 @@ export default function Navbar({ user, onLogout }) {
                         </div>
                     </div>
 
-                    {/* ── Right: User Dropdown ── */}
+                    {/* ── Right: Admin Links & User Dropdown ── */}
                     <div className="flex items-center gap-2.5 shrink-0">
+                        {isAdmin && (
+                            <button
+                                onClick={() => navigate('/user-management')}
+                                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 font-bold text-xs border border-amber-300/80 transition-all cursor-pointer"
+                            >
+                                <Users className="w-3.5 h-3.5 text-amber-700" />
+                                <span>Master Data User</span>
+                            </button>
+                        )}
+
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 id="navbar-user-btn"
@@ -200,7 +221,7 @@ export default function Navbar({ user, onLogout }) {
                                 {/* Name + Role */}
                                 <div className="hidden sm:block text-left">
                                     <p className="text-slate-800 text-[12px] font-bold leading-tight">{displayName}</p>
-                                    <p className="text-amber-800/70 text-[10px] font-medium leading-tight">{user?.role || 'Super Admin'}</p>
+                                    <p className="text-amber-800/70 text-[10px] font-medium leading-tight capitalize">{user?.role || 'user'}</p>
                                 </div>
                                 <ChevronDown
                                     className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
@@ -218,13 +239,32 @@ export default function Navbar({ user, onLogout }) {
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-slate-800 leading-tight">{displayName}</p>
-                                                <p className="text-[11px] text-amber-800/80 font-medium">{user?.role || 'Super Admin'}</p>
+                                                <p className="text-[11px] text-amber-800/80 font-medium capitalize">{user?.role || 'user'}</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Menu items */}
                                     <div className="py-1">
+                                        <button
+                                            onClick={() => { setDropdownOpen(false); navigate('/overview'); }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-800 transition-colors text-left cursor-pointer"
+                                        >
+                                            <LayoutDashboard className="w-4 h-4 text-amber-600" />
+                                            <span className="font-medium">Dashboard Overview</span>
+                                        </button>
+
+                                        {isAdmin && (
+                                            <button
+                                                id="user-management-btn"
+                                                onClick={() => { setDropdownOpen(false); navigate('/user-management'); }}
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-800 transition-colors text-left cursor-pointer"
+                                            >
+                                                <Users className="w-4 h-4 text-amber-600" />
+                                                <span className="font-medium">Master Data User</span>
+                                            </button>
+                                        )}
+
                                         <button
                                             id="change-password-btn"
                                             onClick={() => { setShowChangePassword(true); setDropdownOpen(false); }}
@@ -257,6 +297,7 @@ export default function Navbar({ user, onLogout }) {
             {/* Change Password Modal */}
             {showChangePassword && (
                 <ChangePasswordModal
+                    userId={user?.id}
                     username={displayName}
                     onClose={() => setShowChangePassword(false)}
                 />

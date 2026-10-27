@@ -22,8 +22,8 @@ export function getDefaultDates() {
 }
 
 export const PRODUCT_OPTIONS = [
-    'CPO', 'RBDHPO', 'PFAD', 'RBD CNO', 'RBDPO', 'RBD Olein', 'Soap Stock',
-    'RBDST', 'MIXED OIL', 'PAO', 'RBD INFAT', 'NPO', 'RBDFHPKO', 'CDPO',
+    'CDPO', 'CPO', 'MIXED OIL', 'NPO', 'PAO', 'PFAD', 'RBD CNO', 'RBD INFAT',
+    'RBD Olein', 'RBDFHPKO', 'RBDHPO', 'RBDPO', 'RBDST', 'Soap Stock',
 ].map((p) => ({ value: p, label: p }));
 
 export const CLUSTER_OPTIONS = ['C', 'I', 'P', 'F', 'B']

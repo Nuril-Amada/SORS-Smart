@@ -11,6 +11,7 @@ import Login from './pages/login';
 import Navbar from './pages/Navbar';
 import Overview from './pages/Overview';
 import OilTransactions from './pages/OilTransactions';
+import UserManagement from './pages/UserManagement';
 
 /* ─────────────────────────────────────────
    Layout untuk halaman yang WAJIB login.
@@ -21,7 +22,7 @@ function ProtectedLayout({ user, onLogout, children }) {
     return <Navigate to="/login" replace />;
   }
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 pt-16">
       <Navbar user={user} onLogout={onLogout} />
       {children}
     </div>
@@ -31,7 +32,6 @@ function ProtectedLayout({ user, onLogout, children }) {
 /* ─────────────────────────────────────────
    Route /login
    Kalau user SUDAH login -> langsung lempar ke /overview
-   (biar tidak bisa balik ke halaman login lagi setelah login).
 ───────────────────────────────────────── */
 function LoginRoute({ user, onLogin }) {
   const navigate = useNavigate();
@@ -57,12 +57,6 @@ function OverviewRoute({ user, onLogout }) {
   const navigate = useNavigate();
   return (
     <ProtectedLayout user={user} onLogout={onLogout}>
-      {/*
-        onNavigate menerima 2 argumen: path, dan filter tabel yang sedang
-        aktif di widget OilTransactionDetail (lihat handleViewAllTransactions
-        di Overview.jsx). Filter dioper lewat `state` react-router, dan
-        dibaca kembali di pages/OilTransactions.jsx via useLocation().state.
-      */}
       <Overview onNavigate={(path, filters) => navigate(path, { state: filters })} />
     </ProtectedLayout>
   );
@@ -81,29 +75,45 @@ function OilTransactionsRoute({ user, onLogout }) {
 }
 
 /* ─────────────────────────────────────────
+   Route /user-management (Khusus Admin)
+───────────────────────────────────────── */
+function UserManagementRoute({ user, onLogout }) {
+  const navigate = useNavigate();
+  if (user && String(user.role).toLowerCase() !== 'admin') {
+    return <Navigate to="/overview" replace />;
+  }
+  return (
+    <ProtectedLayout user={user} onLogout={onLogout}>
+      <UserManagement currentUser={user} onBack={() => navigate('/overview')} />
+    </ProtectedLayout>
+  );
+}
+
+/* ─────────────────────────────────────────
    App
 ───────────────────────────────────────── */
 export default function App() {
-  // Ganti default ini kalau nanti login sudah terhubung ke backend beneran —
-  // idealnya user awalnya `null` (belum login) sampai handleLogin dipanggil.
-  const [user, setUser] = useState({
-    username: 'admin',
-    fullName: 'Nuril',
-    role: 'Super Admin',
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sors_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const handleLogin = (userData) => {
-    setUser(
-      userData || {
-        username: 'admin',
-        fullName: 'Nuril',
-        role: 'Super Admin',
-      }
-    );
+    setUser(userData);
+    if (userData) {
+      localStorage.setItem('sors_user', JSON.stringify(userData));
+    } else {
+      localStorage.removeItem('sors_user');
+    }
   };
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('sors_user');
   };
 
   return (
@@ -115,7 +125,7 @@ export default function App() {
           element={<LoginRoute user={user} onLogin={handleLogin} />}
         />
 
-        {/* Overview (default halaman utama setelah login) */}
+        {/* Overview */}
         <Route
           path="/overview"
           element={<OverviewRoute user={user} onLogout={handleLogout} />}
@@ -126,13 +136,18 @@ export default function App() {
           path="/detail-transaksi"
           element={<OilTransactionsRoute user={user} onLogout={handleLogout} />}
         />
-        {/* Alias lama /transactions tetap diarahkan ke /detail-transaksi */}
         <Route
           path="/transactions"
           element={<Navigate to="/detail-transaksi" replace />}
         />
 
-        {/* Path lain (termasuk "/") -> overview kalau login, login kalau belum */}
+        {/* Master Data User (Admin only) */}
+        <Route
+          path="/user-management"
+          element={<UserManagementRoute user={user} onLogout={handleLogout} />}
+        />
+
+        {/* Path lain -> overview kalau login, login kalau belum */}
         <Route
           path="*"
           element={<Navigate to={user ? '/overview' : '/login'} replace />}

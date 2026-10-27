@@ -1,32 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import FilterBar, { getDefaultDates } from '../components/overview/FilterBar';
+import FilterBar from '../components/overview/FilterBar';
 import KPICards from '../components/overview/KPICards';
 import DailyTrendChart from '../components/overview/DailyTrendChart';
 import GainLossTrendChart from '../components/overview/GainLossTrendChart';
 import StockDistributionChart from '../components/overview/StockDistributionChart';
 import TransactionByUnitChart from '../components/overview/TransactionByUnitChart';
-import { OilTransactionDetail } from '../components/overview/OilTransactions'; // named export, bukan default
-import { ArrowRight, BarChart2 } from 'lucide-react';
+import { OilTransactionDetail } from '../components/overview/OilTransactions';
+import {
+    fetchKpi,
+    fetchDailyTrend,
+    fetchGainLossTrend,
+    fetchStockDistribution,
+    fetchTransactionByUnit,
+    fetchTransactions,
+    deleteTransactions,
+    uploadImportFile,
+    getExportCsvUrl,
+    fetchProductNames
+} from '../services/api';
 
-/* ─────────────────────────────────────────
-   Default filter state SAAT PERTAMA BUKA HALAMAN: current month
-   (dipakai hanya untuk initial state, BUKAN untuk reset)
-───────────────────────────────────────── */
 function buildInitialFilters() {
-    const dates = getDefaultDates();
     return {
-        dateFrom: dates.dateFrom,
-        dateTo: dates.dateTo,
+        dateFrom: '',
+        dateTo: '',
         product: '',
         cluster: '',
     };
 }
 
-/* ─────────────────────────────────────────
-   Default filter state SAAT TOMBOL RESET DIKLIK:
-   tanggal dikosongkan (placeholder dd/mm/yyyy),
-   bukan balik ke bulan berjalan.
-───────────────────────────────────────── */
 function buildEmptyFilters() {
     return {
         dateFrom: '',
@@ -36,139 +37,93 @@ function buildEmptyFilters() {
     };
 }
 
-/* ─────────────────────────────────────────
-   Overview page
-───────────────────────────────────────── */
+// Memory cache untuk mempertahankan data & filter saat perpindahan tab / route
+let overviewCache = {
+    dailyTrend: [],
+    gainLoss: [],
+    kpi: {},
+    stockDist: { product: [], cluster: [], tank: [] },
+    transByUnit: { unit: [], cluster: [], tank: [] },
+    transactions: [],
+    filters: buildInitialFilters(),
+};
+
 export default function Overview({ onNavigate }) {
-    const [filters, setFilters] = useState(buildInitialFilters);
+    const [filters, setFilters] = useState(overviewCache.filters || buildInitialFilters());
+    const [productNames, setProductNames] = useState([]);
 
-    // Data untuk DailyTrendChart & GainLossTrendChart — keduanya komponen
-    // presentational (lihat komentar di masing-masing file), jadi Overview
-    // yang bertanggung jawab fetch datanya berdasarkan `filters`.
-    const [dailyTrendData, setDailyTrendData] = useState([]);
-    const [gainLossData, setGainLossData] = useState([]);
+    const [dailyTrendData, setDailyTrendData] = useState(overviewCache.dailyTrend);
+    const [gainLossData, setGainLossData] = useState(overviewCache.gainLoss);
+    const [kpiData, setKpiData] = useState(overviewCache.kpi);
+    const [stockDistData, setStockDistData] = useState(overviewCache.stockDist);
+    const [transByUnitData, setTransByUnitData] = useState(overviewCache.transByUnit);
+    const [oilTransactions, setOilTransactions] = useState(overviewCache.transactions);
 
-    // Data untuk KPICards (termasuk card baru "Rata-rata Suhu") — juga
-    // presentational, jadi Overview yang fetch berdasarkan `filters`.
-    const [kpiData, setKpiData] = useState({});
-
-    // Data untuk tabel Detail Transaksi Minyak (widget 5 teratas).
-    // Presentational juga — Overview yang fetch, widget tinggal tampilkan +
-    // filter/sort di sisi client. Kosong dulu sampai backend siap (lihat TODO di bawah).
-    const [oilTransactions, setOilTransactions] = useState([]);
+    // Fetch product names once on mount
+    useEffect(() => {
+        fetchProductNames().then((names) => {
+            if (names && names.length > 0) setProductNames(names);
+        });
+    }, []);
 
     const handleResetFilters = () => {
-        setFilters(buildEmptyFilters());
+        const empty = buildEmptyFilters();
+        overviewCache.filters = empty;
+        setFilters(empty);
     };
 
-    // ── Fetch data Tren Transaksi Harian setiap kali filter berubah ──
+    const loadAllData = (currentFilters) => {
+        fetchDailyTrend(currentFilters).then((res) => {
+            overviewCache.dailyTrend = res || [];
+            setDailyTrendData(res || []);
+        });
+        fetchGainLossTrend(currentFilters).then((res) => {
+            overviewCache.gainLoss = res || [];
+            setGainLossData(res || []);
+        });
+        fetchKpi(currentFilters).then((res) => {
+            overviewCache.kpi = res || {};
+            setKpiData(res || {});
+        });
+        fetchStockDistribution(currentFilters).then((res) => {
+            const data = res || { product: [], cluster: [], tank: [] };
+            overviewCache.stockDist = data;
+            setStockDistData(data);
+        });
+        fetchTransactionByUnit(currentFilters).then((res) => {
+            const data = res || { unit: [], cluster: [], tank: [] };
+            overviewCache.transByUnit = data;
+            setTransByUnitData(data);
+        });
+        fetchTransactions(currentFilters, 1, 0).then((res) => {
+            overviewCache.transactions = res || [];
+            setOilTransactions(res || []);
+        });
+    };
+
     useEffect(() => {
-        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
-        //
-        // const params = new URLSearchParams({
-        //     dateFrom: filters.dateFrom,
-        //     dateTo: filters.dateTo,
-        //     product: filters.product,
-        //     cluster: filters.cluster,
-        // });
-        // fetch(`/api/transaksi-harian?${params}`)
-        //     .then(r => r.json())
-        //     .then(setDailyTrendData)
-        //     .catch(err => {
-        //         console.error('Gagal memuat tren transaksi harian:', err);
-        //         setDailyTrendData([]);
-        //     });
-        //
-        // Untuk sekarang dikosongkan supaya chart menampilkan EmptyState,
-        // bukan data dummy/palsu.
-        setDailyTrendData([]);
+        overviewCache.filters = filters;
+        loadAllData(filters);
     }, [filters]);
 
-    // ── Fetch data Tren Gain/Loss Harian setiap kali filter berubah ──
-    useEffect(() => {
-        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
-        //
-        // const params = new URLSearchParams({
-        //     dateFrom: filters.dateFrom,
-        //     dateTo: filters.dateTo,
-        //     product: filters.product,
-        //     cluster: filters.cluster,
-        // });
-        // fetch(`/api/gain-loss-harian?${params}`)
-        //     .then(r => r.json())
-        //     .then(setGainLossData)
-        //     .catch(err => {
-        //         console.error('Gagal memuat tren gain/loss harian:', err);
-        //         setGainLossData([]);
-        //     });
-        //
-        // Untuk sekarang dikosongkan supaya chart menampilkan EmptyState,
-        // bukan data dummy/palsu.
-        setGainLossData([]);
-    }, [filters]);
+    const handleExportPDF = async (currFilters) => {
+        const url = getExportCsvUrl(currFilters);
+        window.open(url, '_blank');
+        return 'Data berhasil diexport ke CSV.';
+    };
 
-    // ── Fetch data KPI Cards setiap kali filter berubah ──
-    // (mencakup: beginningStock, totalIn, totalOut, endingStock,
-    // netGainLoss, dan avgTemperature — dipakai FilterBar untuk memfilter
-    // per periode tanggal / produk / cluster)
-    useEffect(() => {
-        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
-        //
-        // const params = new URLSearchParams({
-        //     dateFrom: filters.dateFrom,
-        //     dateTo: filters.dateTo,
-        //     product: filters.product,
-        //     cluster: filters.cluster,
-        // });
-        // fetch(`/api/kpi?${params}`)
-        //     .then(r => r.json())
-        //     .then(setKpiData);
-        //     // response yang diharapkan, contoh:
-        //     // {
-        //     //   beginningStock: { value: 45000, prevValue: 43000, unit: 'KG' },
-        //     //   totalIn:        { value: 12500, prevValue: 11000, unit: 'KG' },
-        //     //   totalOut:       { value: 9800,  prevValue: 10200, unit: 'KG' },
-        //     //   endingStock:    { value: 47700, prevValue: 43800, unit: 'KG' },
-        //     //   netGainLoss:    { value: 120.5, prevValue: -30,   unit: 'KG' },
-        //     //   avgTemperature: { value: 62.4,  prevValue: 61.8,  unit: '°C' },
-        //     // }
-        //     .catch(err => {
-        //         console.error('Gagal memuat data KPI:', err);
-        //         setKpiData({});
-        //     });
-        //
-        // Untuk sekarang dikosongkan supaya card menampilkan "-",
-        // bukan data dummy/palsu.
-        setKpiData({});
-    }, [filters]);
+    const handleImportFile = async (file) => {
+        const msg = await uploadImportFile(file);
+        loadAllData(filters);
+        return msg;
+    };
 
-    // ── Fetch data tabel Detail Transaksi Minyak setiap kali filter global berubah ──
-    useEffect(() => {
-        // TODO: sambungkan ke API asli setelah backend & database siap, contoh:
-        //
-        // const params = new URLSearchParams({
-        //     dateFrom: filters.dateFrom,
-        //     dateTo: filters.dateTo,
-        //     product: filters.product,
-        // });
-        // fetch(`/api/transaksi?${params}`)
-        //     .then(r => r.json())
-        //     .then(setOilTransactions)
-        //     .catch(err => {
-        //         console.error('Gagal memuat data transaksi:', err);
-        //         setOilTransactions([]);
-        //     });
-        //
-        // Untuk sekarang dikosongkan supaya tabel menampilkan EmptyState,
-        // bukan data dummy/palsu.
-        setOilTransactions([]);
-    }, [filters]);
+    const handleDeleteData = async (currFilters) => {
+        const msg = await deleteTransactions(currFilters);
+        loadAllData(filters);
+        return msg;
+    };
 
-    // FIX: filter tabel yang sedang aktif di widget (tankSearch, product,
-    // dateFrom, dateTo — lihat definisi di OilTransactionDetail) dioper ke
-    // route '/detail-transaksi' supaya tidak hilang saat user pindah halaman.
-    // Sesuaikan implementasi onNavigate di router kamu agar menerima argumen
-    // kedua ini dan meneruskannya sebagai prop `initialFilters` ke OilTransactionsPage.
     const handleViewAllTransactions = (activeTableFilters) => {
         if (onNavigate) {
             onNavigate('/detail-transaksi', activeTableFilters);
@@ -187,6 +142,10 @@ export default function Overview({ onNavigate }) {
                     filters={filters}
                     onFiltersChange={setFilters}
                     onResetFilters={handleResetFilters}
+                    onExportPDF={handleExportPDF}
+                    onImportFile={handleImportFile}
+                    onDeleteData={handleDeleteData}
+                    productOptions={productNames.map(p => ({ value: p, label: p }))}
                 />
 
                 {/* ── Section 3: KPI Cards ───────────────── */}
@@ -196,7 +155,6 @@ export default function Overview({ onNavigate }) {
                     Section 4: Visualisasi / Charts
                 ══════════════════════════════════════════ */}
                 <div>
-
                     <div className="space-y-5">
                         {/* A — Tren Transaksi Harian + Tren Gain/Loss Harian (bersampingan) */}
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -206,15 +164,17 @@ export default function Overview({ onNavigate }) {
 
                         {/* B + C — Side by side (responsive) */}
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                            <StockDistributionChart filters={filters} />
-                            <TransactionByUnitChart filters={filters} />
+                            <StockDistributionChart data={stockDistData} filters={filters} />
+                            <TransactionByUnitChart data={transByUnitData} filters={filters} />
                         </div>
 
                         {/* D — Detail Transaksi Minyak (Tabel Detail 5 Teratas & Lihat Selengkapnya) */}
                         <OilTransactionDetail
                             filters={filters}
+                            onFiltersChange={setFilters}
                             transactions={oilTransactions}
                             onViewAll={handleViewAllTransactions}
+                            productNames={productNames}
                         />
                     </div>
                 </div>

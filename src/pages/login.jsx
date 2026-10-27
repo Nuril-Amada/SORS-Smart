@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import smartLogo from '../assets/LOGO.png';
 
+import { loginUser, registerUser } from '../services/api';
+
 export default function Login({ onLogin }) {
     const [isLogin, setIsLogin] = useState(true);
 
@@ -32,7 +34,7 @@ export default function Login({ onLogin }) {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleLoginSubmit = (e) => {
+    const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setMessage({ type: '', text: '' });
 
@@ -42,22 +44,30 @@ export default function Login({ onLogin }) {
         }
 
         setIsLoading(true);
-        setTimeout(() => {
+        try {
+            const res = await loginUser(loginUsername, loginPassword);
             setIsLoading(false);
-            // Notify parent (App.jsx) that login succeeded
-            if (onLogin) {
-                onLogin({
-                    username: loginUsername,
-                    fullName: loginUsername,
-                    role: 'Operator',
-                });
+            if (res.success) {
+                if (onLogin) {
+                    onLogin({
+                        id: res.data?.user?.id,
+                        username: res.data?.user?.username || loginUsername,
+                        fullName: res.data?.user?.full_name || res.data?.user?.username || loginUsername,
+                        role: res.data?.user?.role || 'user',
+                    });
+                } else {
+                    setMessage({ type: 'success', text: `Selamat datang kembali, ${loginUsername}!` });
+                }
             } else {
-                setMessage({ type: 'success', text: `Selamat datang kembali, ${loginUsername}!` });
+                setMessage({ type: 'error', text: res.message || 'Username atau password salah.' });
             }
-        }, 800);
+        } catch (err) {
+            setIsLoading(false);
+            setMessage({ type: 'error', text: 'Gagal terhubung ke server.' });
+        }
     };
 
-    const handleRegisterSubmit = (e) => {
+    const handleRegisterSubmit = async (e) => {
         e.preventDefault();
         setMessage({ type: '', text: '' });
 
@@ -77,15 +87,23 @@ export default function Login({ onLogin }) {
         }
 
         setIsLoading(true);
-        setTimeout(() => {
+        try {
+            const res = await registerUser(regFullName, regUsername, regPassword, regConfirmPassword);
             setIsLoading(false);
-            setMessage({ type: 'success', text: 'Akun berhasil didaftarkan! Silakan masuk.' });
-            setTimeout(() => {
-                setIsLogin(true);
-                setLoginUsername(regUsername);
-                setMessage({ type: 'success', text: 'Akun berhasil dibuat. Silakan masukkan password.' });
-            }, 1000);
-        }, 800);
+            if (res.success) {
+                setMessage({ type: 'success', text: res.message || 'Registrasi berhasil! Akun dibuat sebagai user.' });
+                setTimeout(() => {
+                    setIsLogin(true);
+                    setLoginUsername(regUsername);
+                    setMessage({ type: 'success', text: 'Akun berhasil dibuat. Silakan masuk.' });
+                }, 1200);
+            } else {
+                setMessage({ type: 'error', text: res.message || 'Gagal mendaftarkan akun.' });
+            }
+        } catch (err) {
+            setIsLoading(false);
+            setMessage({ type: 'error', text: 'Terjadi kesalahan saat mendaftar.' });
+        }
     };
 
     const switchMode = (loginMode) => {

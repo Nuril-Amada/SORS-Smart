@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
     Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -54,7 +54,7 @@ function CustomTooltip({ active, payload, label }) {
 
     const seriesColor = {
         IN: '#10b981',
-        OUT: '#f97316',
+        OUT: '#ef4444',
         EndingStock: '#d97706',
     };
 
@@ -202,7 +202,7 @@ export default function DailyTrendChart({ data = [] }) {
                             <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-700">
                                 IN {totalIN.toLocaleString('id-ID')} KG
                             </span>
-                            <span className="px-2.5 py-1 rounded-lg bg-orange-50 border border-orange-200 text-[11px] font-bold text-orange-700">
+                            <span className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-[11px] font-bold text-rose-600">
                                 OUT {totalOUT.toLocaleString('id-ID')} KG
                             </span>
                             <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${trend >= 0
@@ -253,73 +253,89 @@ export default function DailyTrendChart({ data = [] }) {
                 {data.length === 0 ? (
                     <EmptyState />
                 ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                        <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                            <XAxis
-                                dataKey="dateLabel"
-                                tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
-                                axisLine={false}
-                                tickLine={false}
-                                interval="preserveStartEnd"
-                            />
-                            {/* Sumbu kiri: IN / OUT (volume per periode) */}
-                            <YAxis
-                                yAxisId="left"
-                                tick={{ fontSize: 10, fill: '#94a3b8' }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={v => `${(v / 1000).toFixed(1)}k`}
-                                width={40}
-                            />
-                            {/* Sumbu kanan: Ending Stock (akumulasi, skala lebih besar) */}
-                            <YAxis
-                                yAxisId="right"
-                                orientation="right"
-                                tick={{ fontSize: 10, fill: '#d97706' }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={v => `${(v / 1000).toFixed(1)}k`}
-                                width={44}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fffbeb' }} />
-                            <Legend
-                                wrapperStyle={{ fontSize: 11, paddingTop: 16 }}
-                                formatter={(value) => (
-                                    <span className="text-slate-600 font-semibold">
-                                        {value === 'EndingStock' ? 'Ending Stock' : value}
-                                    </span>
+                    <div className="w-full h-[280px] min-w-0">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                            <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                                <XAxis
+                                    dataKey="dateLabel"
+                                    tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    interval="preserveStartEnd"
+                                />
+                                {/* Sumbu kiri: IN / OUT (volume per periode) */}
+                                <YAxis
+                                    yAxisId="left"
+                                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickFormatter={v => `${(v / 1000).toFixed(1)}k`}
+                                    width={40}
+                                />
+                                {/* Sumbu kanan: Ending Stock (akumulasi, skala lebih besar) */}
+                                <YAxis
+                                    yAxisId="right"
+                                    orientation="right"
+                                    tick={{ fontSize: 10, fill: '#d97706' }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickFormatter={v => `${(v / 1000).toFixed(1)}k`}
+                                    width={44}
+                                />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fffbeb' }} />
+                                <Legend
+                                    wrapperStyle={{ fontSize: 11, paddingTop: 16 }}
+                                    formatter={(value) => (
+                                        <span className="text-slate-600 font-semibold">
+                                            {value === 'EndingStock' ? 'Ending Stock' : value}
+                                        </span>
+                                    )}
+                                />
+                                <ReferenceLine yAxisId="left" y={0} stroke="#e2e8f0" />
+
+                                {/* Bar mode: IN & OUT sebagai batang */}
+                                {chartType === 'bar' && (
+                                    <>
+                                        <Bar yAxisId="left" dataKey="IN" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                                        <Bar yAxisId="left" dataKey="OUT" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                                    </>
                                 )}
-                            />
-                            <ReferenceLine yAxisId="left" y={0} stroke="#e2e8f0" />
 
-                            {/* Bar mode: IN & OUT sebagai batang */}
-                            {chartType === 'bar' && (
-                                <>
-                                    <Bar yAxisId="left" dataKey="IN" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                                    <Bar yAxisId="left" dataKey="OUT" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                                </>
-                            )}
+                                {/* Line mode: IN & OUT sebagai garis (tanpa dot agar garis bersih) */}
+                                {chartType === 'line' && (
+                                    <>
+                                        <Line
+                                            yAxisId="left"
+                                            dataKey="IN"
+                                            stroke="#10b981"
+                                            strokeWidth={2.5}
+                                            dot={false}
+                                            activeDot={{ r: 6, strokeWidth: 2, stroke: '#ffffff' }}
+                                        />
+                                        <Line
+                                            yAxisId="left"
+                                            dataKey="OUT"
+                                            stroke="#ef4444"
+                                            strokeWidth={2.5}
+                                            dot={false}
+                                            activeDot={{ r: 6, strokeWidth: 2, stroke: '#ffffff' }}
+                                        />
+                                    </>
+                                )}
 
-                            {/* Line mode: IN & OUT sebagai garis */}
-                            {chartType === 'line' && (
-                                <>
-                                    <Line yAxisId="left" dataKey="IN" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
-                                    <Line yAxisId="left" dataKey="OUT" stroke="#f97316" strokeWidth={2.5} dot={{ r: 4, fill: '#f97316' }} activeDot={{ r: 6 }} />
-                                </>
-                            )}
-
-                            {/* Ending Stock selalu tampil sebagai garis di sumbu kanan */}
-                            <Line
-                                yAxisId="right"
-                                dataKey="EndingStock"
-                                stroke="#d97706"
-                                strokeWidth={2.5}
-                                dot={{ r: 3, fill: '#d97706' }}
-                                activeDot={{ r: 6 }}
-                            />
-                        </ComposedChart>
-                    </ResponsiveContainer>
+                                {/* Ending Stock selalu tampil sebagai garis di sumbu kanan (dengan dot) */}
+                                <Line
+                                    yAxisId="right"
+                                    dataKey="EndingStock"
+                                    stroke="#d97706"
+                                    strokeWidth={2.5}
+                                    dot={{ r: 3, fill: '#d97706' }}
+                                    activeDot={{ r: 6, strokeWidth: 2, stroke: '#ffffff' }}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
 
